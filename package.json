@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@andresaya/edge-tts": "^1.2.4",
+    "@napi-rs/canvas": "^0.1.73",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
