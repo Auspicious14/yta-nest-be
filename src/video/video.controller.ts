@@ -1,11 +1,169 @@
-import { Body, Controller, Post } from "@nestjs/common";
-
+import { BadRequestException, Body, Controller, InternalServerErrorException, Post } from '@nestjs/common';
+import { Job, JobModel, JobSchema } from 'src/schemas';
+import { PixabayService } from 'src/shared/pixabay/pixabay.service';
+import { ScriptService } from 'src/shared/script/script.service';
+import { SpeechService } from 'src/shared/speech/speech.service';
+import { ThumbNailService } from 'src/shared/thumbnail/thumbnail.service';
+import { TTSService } from 'src/shared/tts/tts.service';
+import { JobStatus } from 'src/types/jobTypes';
+import { VideoService } from './video.service';
 
 @Controller('automate')
 export class VideoController {
+  constructor(
+    private scriptService: ScriptService,
+    private ttsService: TTSService,
+    private speechService: SpeechService,
+    private thumbnailService: ThumbNailService,
+    private pixabayService: PixabayService,
+    private videoService: VideoService,
+  ) {}
+  @Post('video')
+  async createVideo(@Body() prompt: string) {
+    console.log('Start Prompting...');
 
-    // @Post('video')
-    // @Body()
+    if (!prompt) throw new BadRequestException('Prompt not found');
 
+    const newJob: any = new JobModel({
+      prompt,
+      status: JobStatus.PENDING,
+    });
 
+    await newJob.save();
+
+    let job: any = await JobModel.findById(newJob._id);
+
+    job.status = JobStatus.IN_PROGRESS;
+    job.startTime = new Date();
+    await job.save();
+
+    // SCRIPT GENERATION //
+
+    const script = await this.scriptService.generateScript(prompt);
+    if (!script) throw new InternalServerErrorException('Script generation failed');
+
+    job.script = script;
+    await job.save();
+
+    console.log('Script generated successfully');
+
+    // GENERATE UTILITIES
+    const tags = await this.scriptService.generateTags(
+      script.substring(0, 100),
+    );
+    const imageSearchQuery = await this.scriptService.generateImageSearchQuery(
+      script.substring(0, 100),
+    );
+    const videoDescription = await this.scriptService.generateVideoDescription(
+      script.substring(0, 100),
+    );
+    const videoTitle = await this.scriptService.generateVideoTitle(
+      script.substring(0, 100),
+    );
+    const videoSearchQuery = await this.scriptService.generateVideoSearchQuery(
+      script.substring(0, 100),
+    );
+
+    // AUDIO GENERATION //
+
+    const audioPath = await this.ttsService.synthesize(
+      job.script,
+      `audio_${job._id}.mp3`,
+    );
+
+    if (!audioPath)
+      throw new InternalServerErrorException(
+        'Text-To-Speech generation failed',
+      );
+
+    job.audioFilePath = audioPath;
+    await job.save();
+
+    console.log('Audio generated successfully');
+
+    // SUBTITLES GENERATION //
+    const transcribe = await this.speechService.transcribe(
+      'vosk',
+      job.audioFilePath,
+    );
+
+    if (!transcribe)
+      throw new InternalServerErrorException(
+        'Speech-To-Text generation failed',
+      );
+
+    job.subtitleFilePath = transcribe;
+    await job.save();
+
+    console.log('Subtitle generated successfully');
+
+    // THUMBNAIL GENERATION //
+
+    const thumbnail = await this.thumbnailService.generate(
+      script,
+      `thumbnail_${job?._id}.png`,
+    );
+
+    if (!thumbnail) {
+      console.log('Thumbnail generation failed... implementing fallback...');
+
+      const pixabay =
+        await this.pixabayService.searchIllustrations(imageSearchQuery);
+
+      if (pixabay.length > 0) {
+        job.thumbnail = pixabay[0];
+        await job.save();
+        console.log('Thanks to fallback... Thumbnail generated successfully');
+      } else {
+        throw new InternalServerErrorException(
+          'Fallback Thumbnail generation failed',
+        );
+      }
+    } else {
+      job.videoDetails.thumbnailPath = transcribe;
+      await job.save();
+      console.log('Thumbnail generated successfully');
+    }
+
+    // BACKGROUND MUSIC GENERATION //
+    console.info('Fetching backgroud music...');
+
+    const backgroundMusic = await this.pixabayService.searchMusic(tags[0]);
+    if (backgroundMusic.length > 0) {
+      job.backgroundMusic = backgroundMusic[0];
+      await job.save();
+    }
+
+      // VIDEO GENERATION //
+      
+    console.info('Searching and downloading media...');
+    const videoClips: string[] = [];
+
+    const pixabayVideos = await this.pixabayService.searchVideos(
+      videoSearchQuery,
+      1,
+    );
+
+    if (pixabayVideos.length > 0) {
+      const downloadedVideoPath =
+        await this.pixabayService.downloadPixabayMedia(
+          pixabayVideos[0],
+          'video',
+          `video_${job?._id}.mp4`,
+        );
+
+      if (downloadedVideoPath) {
+        videoClips.push(downloadedVideoPath);
+      }
+      }
+      
+      if (videoClips.length === 0) {
+        throw new InternalServerErrorException(
+          'Failed to download any video clips.',
+        );
+      }
+      job.videoClips = videoClips;
+      await job.save();
+      console.info('Media downloaded successfully.');
+  }
 }

@@ -1,10 +1,12 @@
 import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
+import path from 'path';
 import { lastValueFrom } from 'rxjs';
+import fs from 'fs/promises';
 
 @Injectable()
 export class PixabayService {
-  private readonly API_KEY = process.env.PIXABAY_API_KEY;
+  private readonly API_KEY = process.env.PIXABAY_API_KEY || '';
   private readonly BASE_URL = 'https://pixabay.com/api';
 
   constructor(private readonly httpService: HttpService) {}
@@ -74,5 +76,27 @@ export class PixabayService {
     const { data } = await lastValueFrom(response$);
 
     return data.hits.map((hit) => hit.largeImageURL);
+  }
+
+  async downloadPixabayMedia(
+    url: string,
+    type: 'photo' | 'video',
+    filename: string,
+  ): Promise<string | null> {
+    try {
+      const uploadDir =
+        type === 'photo' ? 'uploads/thumbnails' : 'uploads/videos';
+      const filePath = path.join(process.cwd(), uploadDir, filename);
+
+      const response = this.httpService.get(url);
+
+      const { data } = await lastValueFrom(response);
+      await fs.writeFile(filePath, data);
+      console.log(`Downloaded ${type} to ${filePath}`);
+      return filePath;
+    } catch (error) {
+      console.error(`Error downloading ${type}:`, error);
+      return null;
+    }
   }
 }
