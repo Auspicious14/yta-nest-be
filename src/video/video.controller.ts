@@ -54,15 +54,23 @@ export class VideoController {
     const imageSearchQuery = await this.scriptService.generateImageSearchQuery(
       script.substring(0, 100),
     );
-    const videoDescription = await this.scriptService.generateVideoDescription(
+    const description = await this.scriptService.generateVideoDescription(
       script.substring(0, 100),
     );
-    const videoTitle = await this.scriptService.generateVideoTitle(
+    const title = await this.scriptService.generateVideoTitle(
       script.substring(0, 100),
     );
     const videoSearchQuery = await this.scriptService.generateVideoSearchQuery(
       script.substring(0, 100),
-    );
+      );
+      
+      job.videoDetails = {
+        title,
+        description,
+        tags,
+        thumbnailPath: job.videoDetails.thumbnailPath, 
+      };
+      await job.save();
 
     // AUDIO GENERATION //
 
