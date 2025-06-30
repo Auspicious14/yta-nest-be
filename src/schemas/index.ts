@@ -3,6 +3,7 @@
 import { Document } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { IJob, JobStatus } from '../types/jobTypes';
+import { Model } from 'mongoose';
 
 
 
@@ -73,3 +74,7 @@ export class Job  {
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);
+
+
+export type JobDocument = Job & Document;
+export const JobModel: Model<JobDocument> = JobSchema as any;

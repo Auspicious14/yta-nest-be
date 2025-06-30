@@ -4,6 +4,7 @@ import { ScriptModule } from './script/script.module';
 import { TTSModule } from './tts/tts.module';
 import { ThumbNailModule } from './thumbnail/thumbnail.module';
 import { PixabayModule } from './pixabay/pixabay.module';
+import { SpeechService } from './speech/speech.service';
 
 @Global()
 @Module({
@@ -13,6 +14,7 @@ import { PixabayModule } from './pixabay/pixabay.module';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
+    SpeechService,
   ],
   exports: [
     TTSModule,
@@ -20,6 +22,7 @@ import { PixabayModule } from './pixabay/pixabay.module';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
+    SpeechService,
   ],
 })
 export class SharedModule {}
