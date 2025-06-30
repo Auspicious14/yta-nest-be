@@ -3,9 +3,8 @@ import { TTSService } from "./tts.service";
 
 
 @Module({
-    imports: [],
-    controllers: [],
-    providers: [TTSService]
+    providers: [TTSService],
+    exports: [TTSService],
 })
 
 export class TTSModule {}
