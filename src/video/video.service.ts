@@ -3,7 +3,7 @@ import { google } from "googleapis";
 
 
 @Injectable()
-export class VideoService {
+export class YoutubeService {
   private youtube = google.youtube('v3');
   private oauth2Client: any;
   private CLIENT_ID: string | undefined;
@@ -16,7 +16,7 @@ export class VideoService {
     this.CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET;
     this.REDIRECT_URI =
       process.env.YOUTUBE_REDIRECT_URI ||
-      'http://localhost:3000/oauth2callback';
+      'http://localhost:23000/oauth2callback';
 
     this.oauth2Client = new google.auth.OAuth2(
       this.CLIENT_ID,
@@ -42,7 +42,7 @@ export class VideoService {
     if (!this.REFRESH_TOKEN) {
       console.error('YouTube refresh token not set. Cannot upload video.');
       console.log(
-        'Please ensure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, and YOUTUBE_REFRESH_TOKEN are set in your .env file.',
+        'Please ensure GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI, and YOUTUBE_REFRESH_TOKEN are set in your .env file.',
       );
       console.log(
         'You might need to perform an OAuth flow to get a refresh token.',
@@ -51,7 +51,7 @@ export class VideoService {
     }
 
     try {
-      const response = this.youtube.videos.insert(
+      const response = await this.youtube.videos.insert(
         {
           auth: this.oauth2Client,
           part: ['snippet', 'status'],
