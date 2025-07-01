@@ -13,6 +13,9 @@ import { ThumbNailService } from 'src/shared/thumbnail/thumbnail.service';
 import { TTSService } from 'src/shared/tts/tts.service';
 import { JobStatus } from 'src/types/jobTypes';
 import { VideoService } from './video.service';
+import * as fs from 'fs';
+import * as path from 'path';
+import { FfmpegService } from 'src/shared/ffmpeg/ffmpeg.service';
 
 @Controller('automate')
 export class VideoController {
@@ -22,7 +25,8 @@ export class VideoController {
     private speechService: SpeechService,
     private thumbnailService: ThumbNailService,
     private pixabayService: PixabayService,
-    private videoService: VideoService,
+      private videoService: VideoService,
+    private ffmpegService: FfmpegService
   ) {}
   @Post('video')
   async createVideo(@Body() prompt: string) {
@@ -175,5 +179,29 @@ export class VideoController {
     job.videoClips = videoClips;
     await job.save();
     console.info('Media downloaded successfully.');
+
+    // MERGE ALL MEDIA INTO FINAL VIDEO
+    const outputPath = path.join(
+      process.cwd(),
+      'uploads',
+      'finals',
+      `final_${job._id}.mp4`,
+    );
+    await fs.promises.mkdir(path.dirname(outputPath), { recursive: true });
+
+    await this.ffmpegService.mergeAll({
+      clips: job.videoClips,
+      audioPath: job.audioFilePath,
+      musicPath: job.backgroundMusic,
+      subtitlePath: job.subtitleFilePath,
+      thumbnailPath: job.videoDetails.thumbnailPath,
+      outputPath,
+    });
+
+    job.finalVideoPath = outputPath;
+    job.status = JobStatus.COMPLETED;
+    job.endTime = new Date();
+    await job.save();
+    console.info('Final video created and saved.');
   }
 }

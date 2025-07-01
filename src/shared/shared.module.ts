@@ -5,6 +5,7 @@ import { TTSModule } from './tts/tts.module';
 import { ThumbNailModule } from './thumbnail/thumbnail.module';
 import { PixabayModule } from './pixabay/pixabay.module';
 import { SpeechService } from './speech/speech.service';
+import { FfmpegService } from './ffmpeg/ffmpeg.service';
 
 @Global()
 @Module({
@@ -15,6 +16,7 @@ import { SpeechService } from './speech/speech.service';
     ThumbNailModule,
     PixabayModule,
     SpeechService,
+    FfmpegService,
   ],
   exports: [
     TTSModule,
@@ -23,6 +25,7 @@ import { SpeechService } from './speech/speech.service';
     ThumbNailModule,
     PixabayModule,
     SpeechService,
+    FfmpegService,
   ],
 })
 export class SharedModule {}
