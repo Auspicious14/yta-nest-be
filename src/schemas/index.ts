@@ -6,10 +6,8 @@ import { IJob, JobStatus } from '../types/jobTypes';
 import { Model } from 'mongoose';
 
 
-
 @Schema({ timestamps: true })
-  
-export class Job  {
+export class Job {
   @Prop({ required: true })
   prompt: string;
 
@@ -57,6 +55,9 @@ export class Job  {
 
   @Prop()
   videoFilePath: string;
+
+  @Prop()
+  backgroundMusicPath: string;
 
   @Prop()
   videoDetails: {

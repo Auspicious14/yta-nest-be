@@ -8,7 +8,7 @@ import path from 'path';
 export class ThumbNailService {
   constructor(private readonly httpService: HttpService) {}
 
-  async generate(prompt: string, outputPath?: string): Promise<Buffer> {
+  async generate(prompt: string, outputPath?: string): Promise<string> {
     const width = 1280;
     const height = 720;
     const canvas = createCanvas(width, height);
@@ -32,10 +32,20 @@ export class ThumbNailService {
 
     const buffer = canvas.toBuffer('image/png');
 
+    let filePath: string;
     if (outputPath) {
-      fs.writeFile(outputPath, buffer);
+      filePath = path.isAbsolute(outputPath)
+        ? outputPath
+        : path.join(process.cwd(), outputPath);
+    } else {
+      // Default location if not provided
+      const filename = `thumbnail_${Date.now()}.png`;
+      filePath = path.join(process.cwd(), 'uploads', 'thumbnails', filename);
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
     }
 
-    return buffer;
+    await fs.writeFile(filePath, buffer);
+
+    return filePath;
   }
 }

@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import path from 'path';
 import { lastValueFrom } from 'rxjs';
 import fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PixabayService {
@@ -11,9 +12,26 @@ export class PixabayService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async searchVideos(query: string, perPage = 3): Promise<string[]> {
-    const url = `${this.BASE_URL}/videos/`;
+  private async downloadFile(
+    url: string,
+    uploadDir: string,
+    filename: string,
+  ): Promise<string | null> {
+    try {
+      await fs.mkdir(uploadDir, { recursive: true });
+      const filePath = path.join(process.cwd(), uploadDir, filename);
+      const response$ = this.httpService.get(url, { responseType: 'arraybuffer' });
+      const { data } = await lastValueFrom(response$);
+      await fs.writeFile(filePath, data);
+      return filePath;
+    } catch (error) {
+      console.error(`Error downloading file from ${url}:`, error);
+      return null;
+    }
+  }
 
+  async searchAndDownloadVideos(query: string, perPage = 3): Promise<string[]> {
+    const url = `${this.BASE_URL}/videos/`;
     const response$ = this.httpService.get(url, {
       params: {
         key: this.API_KEY,
@@ -21,18 +39,23 @@ export class PixabayService {
         per_page: perPage,
       },
     });
-
     const { data } = await lastValueFrom(response$);
-
     if (!data?.hits?.length) return [];
 
-    // Pick highest quality file (you can customize this)
-    return data.hits.map(
-      (hit) => hit.videos.large?.url || hit.videos.medium?.url,
-    );
+    const uploadDir = 'uploads/videos';
+    const downloadedPaths: string[] = [];
+    for (const hit of data.hits) {
+      const videoUrl = hit.videos.large?.url || hit.videos.medium?.url;
+      if (videoUrl) {
+        const filename = `video_${uuidv4()}.mp4`;
+        const filePath = await this.downloadFile(videoUrl, uploadDir, filename);
+        if (filePath) downloadedPaths.push(filePath);
+      }
+    }
+    return downloadedPaths;
   }
 
-  async searchImages(query: string, perPage = 3): Promise<string[]> {
+  async searchAndDownloadImages(query: string, perPage = 3): Promise<string[]> {
     const response$ = this.httpService.get(this.BASE_URL, {
       params: {
         key: this.API_KEY,
@@ -41,14 +64,49 @@ export class PixabayService {
         image_type: 'photo',
       },
     });
-
     const { data } = await lastValueFrom(response$);
+    if (!data?.hits?.length) return [];
 
-    return data.hits.map((hit) => hit.largeImageURL);
+    const uploadDir = 'uploads/images';
+    const downloadedPaths: string[] = [];
+    for (const hit of data.hits) {
+      const imageUrl = hit.largeImageURL;
+      if (imageUrl) {
+        const filename = `image_${uuidv4()}.jpg`;
+        const filePath = await this.downloadFile(imageUrl, uploadDir, filename);
+        if (filePath) downloadedPaths.push(filePath);
+      }
+    }
+    return downloadedPaths;
   }
 
-  async searchMusic(query: string, perPage = 3): Promise<string[]> {
-    // Pixabay music API: https://pixabay.com/api/docs/music/
+  async searchAndDownloadIllustrations(query: string, perPage = 3): Promise<string[]> {
+    const response$ = this.httpService.get(this.BASE_URL, {
+      params: {
+        key: this.API_KEY,
+        q: query,
+        per_page: perPage,
+        image_type: 'vector',
+        safesearch: true,
+      },
+    });
+    const { data } = await lastValueFrom(response$);
+    if (!data?.hits?.length) return [];
+
+    const uploadDir = 'uploads/illustrations';
+    const downloadedPaths: string[] = [];
+    for (const hit of data.hits) {
+      const illustrationUrl = hit.largeImageURL;
+      if (illustrationUrl) {
+        const filename = `illustration_${uuidv4()}.jpg`;
+        const filePath = await this.downloadFile(illustrationUrl, uploadDir, filename);
+        if (filePath) downloadedPaths.push(filePath);
+      }
+    }
+    return downloadedPaths;
+  }
+
+  async searchAndDownloadMusic(query: string, perPage = 3): Promise<string[]> {
     const response$ = this.httpService.get(`${this.BASE_URL}/music/`, {
       params: {
         key: this.API_KEY,
@@ -56,47 +114,19 @@ export class PixabayService {
         per_page: perPage,
       },
     });
-
     const { data } = await lastValueFrom(response$);
+    if (!data?.hits?.length) return [];
 
-    return data.hits.map((hit) => hit.audio);
-  }
-
-  async searchIllustrations(query: string, perPage = 3): Promise<string[]> {
-    const response$ = this.httpService.get(this.BASE_URL, {
-      params: {
-        key: this.API_KEY,
-        q: query,
-        per_page: perPage,
-        image_type: 'vector', // 🖼️ This targets illustrations
-        safesearch: true,
-      },
-    });
-
-    const { data } = await lastValueFrom(response$);
-
-    return data.hits.map((hit) => hit.largeImageURL);
-  }
-
-  async downloadPixabayMedia(
-    url: string,
-    type: 'photo' | 'video',
-    filename: string,
-  ): Promise<string | null> {
-    try {
-      const uploadDir =
-        type === 'photo' ? 'uploads/thumbnails' : 'uploads/videos';
-      const filePath = path.join(process.cwd(), uploadDir, filename);
-
-      const response = this.httpService.get(url);
-
-      const { data } = await lastValueFrom(response);
-      await fs.writeFile(filePath, data);
-      console.log(`Downloaded ${type} to ${filePath}`);
-      return filePath;
-    } catch (error) {
-      console.error(`Error downloading ${type}:`, error);
-      return null;
+    const uploadDir = 'uploads/music';
+    const downloadedPaths: string[] = [];
+    for (const hit of data.hits) {
+      const musicUrl = hit.audio;
+      if (musicUrl) {
+        const filename = `music_${uuidv4()}.mp3`;
+        const filePath = await this.downloadFile(musicUrl, uploadDir, filename);
+        if (filePath) downloadedPaths.push(filePath);
+      }
     }
+    return downloadedPaths;
   }
 }

@@ -1,4 +1,10 @@
-import { BadRequestException, Body, Controller, InternalServerErrorException, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  InternalServerErrorException,
+  Post,
+} from '@nestjs/common';
 import { Job, JobModel, JobSchema } from 'src/schemas';
 import { PixabayService } from 'src/shared/pixabay/pixabay.service';
 import { ScriptService } from 'src/shared/script/script.service';
@@ -40,7 +46,8 @@ export class VideoController {
     // SCRIPT GENERATION //
 
     const script = await this.scriptService.generateScript(prompt);
-    if (!script) throw new InternalServerErrorException('Script generation failed');
+    if (!script)
+      throw new InternalServerErrorException('Script generation failed');
 
     job.script = script;
     await job.save();
@@ -62,15 +69,15 @@ export class VideoController {
     );
     const videoSearchQuery = await this.scriptService.generateVideoSearchQuery(
       script.substring(0, 100),
-      );
-      
-      job.videoDetails = {
-        title,
-        description,
-        tags,
-        thumbnailPath: job.videoDetails.thumbnailPath, 
-      };
-      await job.save();
+    );
+
+    job.videoDetails = {
+      title,
+      description,
+      tags,
+      thumbnailPath: job.videoDetails.thumbnailPath,
+    };
+    await job.save();
 
     // AUDIO GENERATION //
 
@@ -107,28 +114,32 @@ export class VideoController {
 
     // THUMBNAIL GENERATION //
 
-    const thumbnail = await this.thumbnailService.generate(
+    const thumbnailPath = await this.thumbnailService.generate(
       script,
       `thumbnail_${job?._id}.png`,
     );
 
-    if (!thumbnail) {
+    if (!thumbnailPath) {
       console.log('Thumbnail generation failed... implementing fallback...');
 
-      const pixabay =
-        await this.pixabayService.searchIllustrations(imageSearchQuery);
+      const illustrationPaths =
+        await this.pixabayService.searchAndDownloadIllustrations(
+          imageSearchQuery,
+        );
 
-      if (pixabay.length > 0) {
-        job.thumbnail = pixabay[0];
+      if (illustrationPaths.length > 0) {
+        job.videoDetails.thumbnailPath = illustrationPaths[0];
         await job.save();
-        console.log('Thanks to fallback... Thumbnail generated successfully');
+        console.log(
+          'Thanks to fallback... Thumbnail generated and downloaded successfully',
+        );
       } else {
         throw new InternalServerErrorException(
           'Fallback Thumbnail generation failed',
         );
       }
     } else {
-      job.videoDetails.thumbnailPath = transcribe;
+      job.videoDetails.thumbnailPath = thumbnailPath;
       await job.save();
       console.log('Thumbnail generated successfully');
     }
@@ -136,42 +147,33 @@ export class VideoController {
     // BACKGROUND MUSIC GENERATION //
     console.info('Fetching backgroud music...');
 
-    const backgroundMusic = await this.pixabayService.searchMusic(tags[0]);
+    const backgroundMusic = await this.pixabayService.searchAndDownloadMusic(
+      tags[0],
+    );
     if (backgroundMusic.length > 0) {
       job.backgroundMusic = backgroundMusic[0];
       await job.save();
     }
 
-      // VIDEO GENERATION //
-      
+    // VIDEO GENERATION //
+
     console.info('Searching and downloading media...');
     const videoClips: string[] = [];
 
-    const pixabayVideos = await this.pixabayService.searchVideos(
-      videoSearchQuery,
-      1,
-    );
+    const downloadedVideoPaths =
+      await this.pixabayService.searchAndDownloadVideos(videoSearchQuery, 1);
 
-    if (pixabayVideos.length > 0) {
-      const downloadedVideoPath =
-        await this.pixabayService.downloadPixabayMedia(
-          pixabayVideos[0],
-          'video',
-          `video_${job?._id}.mp4`,
-        );
+    if (downloadedVideoPaths.length > 0) {
+      videoClips.push(downloadedVideoPaths[0]);
+    }
 
-      if (downloadedVideoPath) {
-        videoClips.push(downloadedVideoPath);
-      }
-      }
-      
-      if (videoClips.length === 0) {
-        throw new InternalServerErrorException(
-          'Failed to download any video clips.',
-        );
-      }
-      job.videoClips = videoClips;
-      await job.save();
-      console.info('Media downloaded successfully.');
+    if (videoClips.length === 0) {
+      throw new InternalServerErrorException(
+        'Failed to download any video clips.',
+      );
+    }
+    job.videoClips = videoClips;
+    await job.save();
+    console.info('Media downloaded successfully.');
   }
 }

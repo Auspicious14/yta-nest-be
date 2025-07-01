@@ -14,6 +14,7 @@ export interface IJob extends Document {
   audioFilePath: string;
   subtitleFilePath: string;
   videoFilePath: string;
+  backgroundMusicPath: string;
   videoDetails: {
     title: string;
     description: string;
@@ -22,6 +23,6 @@ export interface IJob extends Document {
   };
   createdAt: Date;
   updatedAt: Date;
-  startTime: Date
-  endTime: Date
+  startTime: Date;
+  endTime: Date;
 }
