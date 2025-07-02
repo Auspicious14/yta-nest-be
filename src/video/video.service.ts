@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { google } from "googleapis";
+import { ConfigService } from '@nestjs/config';
 
 
 @Injectable()
@@ -11,11 +12,11 @@ export class YoutubeService {
   private REDIRECT_URI: string;
   private REFRESH_TOKEN: string | undefined;
 
-  constructor() {
-    this.CLIENT_ID = process.env.YOUTUBE_CLIENT_ID;
-    this.CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET;
+  constructor(private readonly configService: ConfigService) {
+    this.CLIENT_ID = this.configService.get<string>('YOUTUBE_CLIENT_ID');
+    this.CLIENT_SECRET = this.configService.get<string>('YOUTUBE_CLIENT_SECRET');
     this.REDIRECT_URI =
-      process.env.YOUTUBE_REDIRECT_URI ||
+      this.configService.get<string>('YOUTUBE_REDIRECT_URI') ||
       'http://localhost:23000/oauth2callback';
 
     this.oauth2Client = new google.auth.OAuth2(
@@ -24,7 +25,7 @@ export class YoutubeService {
       this.REDIRECT_URI,
     );
 
-    this.REFRESH_TOKEN = process.env.YOUTUBE_REFRESH_TOKEN;
+    this.REFRESH_TOKEN = this.configService.get<string>('YOUTUBE_REFRESH_TOKEN');
 
     if (this.REFRESH_TOKEN) {
       this.oauth2Client.setCredentials({

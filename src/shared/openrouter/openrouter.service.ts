@@ -1,17 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 
 @Injectable()
 export class OpenRouterService {
   private OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
   private model = 'cognitivecomputations/dolphin3.0-r1-mistral-24b:free';
-  private openRouter = new OpenAI({
-    baseURL: this.OPENROUTER_BASE_URL,
-    apiKey: process.env.OPENROUTER_API_KEY!,
-  });
+  private API_KEY: string | undefined;
+  private openRouter: OpenAI;
 
-  constructor() {}
-
+  constructor(private readonly configService: ConfigService) {
+    this.API_KEY = this.configService.get('OPENROUTER_API_KEY');
+    this.openRouter = new OpenAI({
+      baseURL: this.OPENROUTER_BASE_URL,
+      apiKey: this.API_KEY,
+    });
+  }
   async chatCompletions(systemPrompt: string, userContent: string) {
     const response = await this.openRouter.chat.completions.create({
       model: this.model,

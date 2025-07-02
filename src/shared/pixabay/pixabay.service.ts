@@ -4,13 +4,19 @@ import path from 'path';
 import { lastValueFrom } from 'rxjs';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PixabayService {
-  private readonly API_KEY = process.env.PIXABAY_API_KEY || '';
+  private API_KEY: string | undefined;
   private readonly BASE_URL = 'https://pixabay.com/api';
 
-  constructor(private readonly httpService: HttpService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+  ) {
+    this.API_KEY = this.configService.get('API_KEY');
+  }
 
   private async downloadFile(
     url: string,
@@ -20,7 +26,9 @@ export class PixabayService {
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       const filePath = path.join(process.cwd(), uploadDir, filename);
-      const response$ = this.httpService.get(url, { responseType: 'arraybuffer' });
+      const response$ = this.httpService.get(url, {
+        responseType: 'arraybuffer',
+      });
       const { data } = await lastValueFrom(response$);
       await fs.writeFile(filePath, data);
       return filePath;
@@ -80,7 +88,10 @@ export class PixabayService {
     return downloadedPaths;
   }
 
-  async searchAndDownloadIllustrations(query: string, perPage = 3): Promise<string[]> {
+  async searchAndDownloadIllustrations(
+    query: string,
+    perPage = 3,
+  ): Promise<string[]> {
     const response$ = this.httpService.get(this.BASE_URL, {
       params: {
         key: this.API_KEY,
@@ -99,7 +110,11 @@ export class PixabayService {
       const illustrationUrl = hit.largeImageURL;
       if (illustrationUrl) {
         const filename = `illustration_${uuidv4()}.jpg`;
-        const filePath = await this.downloadFile(illustrationUrl, uploadDir, filename);
+        const filePath = await this.downloadFile(
+          illustrationUrl,
+          uploadDir,
+          filename,
+        );
         if (filePath) downloadedPaths.push(filePath);
       }
     }

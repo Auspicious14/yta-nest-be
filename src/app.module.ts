@@ -6,9 +6,11 @@ import { SharedModule } from './shared/shared.module';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 
+const mongodbUrl = process.env.MONGODB_URL || "";
 @Module({
   imports: [
-    MongooseModule.forRoot('mongodb://localhost/nest'),
+    ConfigModule.forRoot({ isGlobal: true }), 
+    MongooseModule.forRoot(mongodbUrl),
     ConfigModule.forRoot(),
     SharedModule,
     VideoModule,
