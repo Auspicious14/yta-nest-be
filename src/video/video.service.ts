@@ -51,7 +51,7 @@ export class YoutubeService {
     }
 
     try {
-      const response = await this.youtube.videos.insert(
+      const response: any = await this.youtube.videos.insert(
         {
           auth: this.oauth2Client,
           part: ['snippet', 'status'],
@@ -63,10 +63,8 @@ export class YoutubeService {
               categoryId: '28', // Science & Technology
               defaultLanguage: 'en',
               localized: {
-                en: {
-                  title,
-                  description,
-                },
+                title,
+                description,
               },
             },
             status: {
