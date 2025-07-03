@@ -1,10 +1,21 @@
-
-
 import { Document } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { IJob, JobStatus } from '../types/jobTypes';
 import { Model } from 'mongoose';
 
+class VideoDetails {
+  @Prop()
+  title: string;
+
+  @Prop()
+  description: string;
+
+  @Prop({ type: [String] })
+  tags: string[];
+
+  @Prop()
+  thumbnailPath: string;
+}
 
 @Schema({ timestamps: true })
 export class Job {
@@ -59,13 +70,8 @@ export class Job {
   @Prop()
   backgroundMusicPath: string;
 
-  @Prop()
-  videoDetails: {
-    title: string;
-    description: string;
-    tags: string[];
-    thumbnailPath: string;
-  };
+  @Prop({ type: VideoDetails })
+  videoDetails: VideoDetails;
 
   @Prop({ required: false })
   createdAt: Date;
@@ -75,7 +81,6 @@ export class Job {
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);
-
 
 export type JobDocument = Job & Document;
 export const JobModel: Model<JobDocument> = JobSchema as any;

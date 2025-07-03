@@ -6,7 +6,9 @@ import fs from 'fs/promises';
 
 @Injectable()
 export class TTSService {
-  constructor(private tts: EdgeTTS) {}
+  constructor(private tts: EdgeTTS) {
+    
+  }
 
   async synthesize(
     text: string,

@@ -8,9 +8,9 @@ import { lastValueFrom } from 'rxjs';
 
 @Injectable()
 export class PexelsService {
+  private readonly PEXELS_API_URL ='https://api.pexels.com'
+  private readonly PEXELS_API_KEY = '7976785'
   constructor(
-    private readonly PEXELS_API_URL: 'https://api.pexels.com',
-    private readonly PEXELS_API_KEY: '',
     private readonly httpService: HttpService,
   ) {}
 

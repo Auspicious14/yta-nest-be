@@ -4,8 +4,8 @@ import { ScriptModule } from './script/script.module';
 import { TTSModule } from './tts/tts.module';
 import { ThumbNailModule } from './thumbnail/thumbnail.module';
 import { PixabayModule } from './pixabay/pixabay.module';
-import { SpeechService } from './speech/speech.service';
-import { FfmpegService } from './ffmpeg/ffmpeg.service';
+import { SpeechModule } from './speech/speech.module';
+import { FfmPegModle } from './ffmpeg/ffmpeg.module';
 
 @Global()
 @Module({
@@ -15,8 +15,8 @@ import { FfmpegService } from './ffmpeg/ffmpeg.service';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
-    SpeechService,
-    FfmpegService,
+    SpeechModule,
+    FfmPegModle,
   ],
   exports: [
     TTSModule,
@@ -24,8 +24,8 @@ import { FfmpegService } from './ffmpeg/ffmpeg.service';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
-    SpeechService,
-    FfmpegService,
+    SpeechModule,
+    FfmPegModle,
   ],
 })
 export class SharedModule {}
