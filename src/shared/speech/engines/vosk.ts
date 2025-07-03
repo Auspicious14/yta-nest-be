@@ -1,5 +1,6 @@
 import { spawn } from "child_process";
 import path from "path";
+import fs from "fs";
 
 module.exports = function voskTranscribe(audioPath: string) {
   return new Promise((resolve, reject) => {
@@ -17,3 +18,5 @@ module.exports = function voskTranscribe(audioPath: string) {
     });
   });
 };
+
+

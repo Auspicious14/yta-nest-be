@@ -108,6 +108,7 @@ export class VideoController {
         const transcribe = await this.speechService.transcribe(
           'vosk',
           job.audioFilePath,
+          job?._id
         );
 
         if (!transcribe)
