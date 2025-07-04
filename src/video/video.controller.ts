@@ -43,17 +43,17 @@ export class VideoController {
     if (!prompt || typeof prompt !== 'string' || prompt.length < 5) {
       throw new BadRequestException('Prompt is invalid');
     }
-    const newJob = new this.jobModel({
+    const job = new this.jobModel({
       prompt,
       status: JobStatus.PENDING,
     });
 
-    await newJob.save();
+    await job.save();
 
-    let job = await this.jobModel.findById(newJob._id);
-    if (!job) {
-      throw new InternalServerErrorException('Job not found after creation');
-    }
+    // let job = await this.jobModel.findById(newJob._id);
+    // if (!job) {
+    //   throw new InternalServerErrorException('Job not found after creation');
+    // }
     try {
       job.status = JobStatus.IN_PROGRESS;
       job.startTime = new Date();
@@ -86,6 +86,7 @@ export class VideoController {
         tags,
         thumbnailPath: ""
       };
+      job.tags = tags
       await job.save();
 
       // AUDIO GENERATION //

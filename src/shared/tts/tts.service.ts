@@ -1,8 +1,7 @@
 import { EdgeTTS } from '@andresaya/edge-tts';
 import { Injectable } from '@nestjs/common';
-import path from 'path';
-import fs from 'fs/promises';
-
+import * as path from 'path';
+import * as fs from 'fs/promises';
 
 @Injectable()
 export class TTSService {
@@ -15,8 +14,8 @@ export class TTSService {
     filename: string,
     voice: string = 'en-US-AriaNeural',
   ) {
-    const audioDir = path.join(process.cwd(), 'uploads', 'audio');
-    await fs.mkdir(audioDir, { recursive: true });
+    const audioDir = path.join(process.cwd(), 'src', 'uploads', 'audio');
+    // await fs.mkdir(audioDir, { recursive: true });
     const audioFilePath = path.join(audioDir, filename);
 
     await this.tts.synthesize(text, voice, {

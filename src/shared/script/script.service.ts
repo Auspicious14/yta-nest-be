@@ -36,13 +36,26 @@ export class ScriptService {
   async generateTags(script: string): Promise<string[]> {
     console.log('Generating video tags...');
     const tags = await this.generateWithAI(
-      "You're a professional video tag creator. Generate a tags based on user input",
+      "You're a professional video tag creator. Generate a tags based on user input. It should be a one word tag based on the script title",
       script,
     );
-    return tags.split(',');
-  }
+    // If tags include something like '1. **', split tags into an array by numbered list
+    if (tags.includes('1. **') || tags.match(/\d+\.\s\*\*/)) {
+      // Split by numbered list (e.g., "1. **tag**", "2. **tag2**", etc.)
+      const tagList = tags
+      .split(/\d+\.\s\*\*/)
+      .map(tag => tag.replace(/\*\*|\n|,|-/g, '').trim())
+      .filter(tag => tag.length > 0);
+      return tagList;
+    }
+    // Otherwise, try to split by comma or newline
+    return tags
+      .split(/,|\n|-/)
+      .map(tag => tag.replace(/\*\*/g, '').trim())
+      .filter(tag => tag.length > 0);
+    }
 
-  async generateImageSearchQuery(scriptSegment: string): Promise<string> {
+    async generateImageSearchQuery(scriptSegment: string): Promise<string> {
     console.log(`Generating image search query for segment: ${scriptSegment}`);
     return this.generateWithAI(
       "You're a professional image search query creator. Generate an image search query based on user input",
