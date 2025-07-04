@@ -26,9 +26,7 @@ export class SpeechService {
         throw new Error(`Unsupported engine: ${engine}`);
     }
 
-    // Save transcript to file
-    const subtitlesDir = path.join(process.cwd(), 'uploads', 'subtitles');
-    await fs.mkdir(subtitlesDir, { recursive: true });
+    const subtitlesDir = path.join(process.cwd(), 'src', 'uploads', 'subtitles');
     const filename = jobId
       ? `subtitle_${jobId}.txt`
       : `subtitle_${Date.now()}.txt`;

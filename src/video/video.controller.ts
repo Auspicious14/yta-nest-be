@@ -73,11 +73,11 @@ export class VideoController {
       // GENERATE UTILITIES
       const [tags, imageSearchQuery, description, title, videoSearchQuery] =
         await Promise.all([
-          this.scriptService.generateTags(script.substring(0, 100)),
-          this.scriptService.generateImageSearchQuery(script.substring(0, 100)),
-          this.scriptService.generateVideoDescription(script.substring(0, 100)),
-          this.scriptService.generateVideoTitle(script.substring(0, 100)),
-          this.scriptService.generateVideoSearchQuery(script.substring(0, 100)),
+          this.scriptService.generateTags(prompt),
+          this.scriptService.generateImageSearchQuery(prompt),
+          this.scriptService.generateVideoDescription(prompt),
+          this.scriptService.generateVideoTitle(prompt),
+          this.scriptService.generateVideoSearchQuery(prompt),
         ]);
 
       job.videoDetails = {
