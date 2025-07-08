@@ -7,237 +7,227 @@ import {
   Post,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Job, JobModel } from 'src/schemas';
+import { Model, GridFSBucket } from 'mongoose';
+import { Job, JobDocument } from 'src/schemas';
 import { PixabayService } from 'src/shared/pixabay/pixabay.service';
 import { ScriptService } from 'src/shared/script/script.service';
 import { SpeechService } from 'src/shared/speech/speech.service';
-import { ThumbNailService } from 'src/shared/thumbnail/thumbnail.service';
-import { TTSService } from 'src/shared/tts/tts.service';
-import { JobStatus } from 'src/types/jobTypes';
-import { YoutubeService } from './video.service';
-import { FfmpegService } from 'src/shared/ffmpeg/ffmpeg.service';
-import * as fs from 'fs';
-import * as path from 'path';
-
-@Controller('automate')
-export class VideoController {
-  private readonly logger = new Logger(VideoController.name);
-
-  constructor(
-    @InjectModel(Job.name) private readonly jobModel: Model<Job>,
-    private scriptService: ScriptService,
-    private ttsService: TTSService,
-    private speechService: SpeechService,
-    private thumbnailService: ThumbNailService,
-    private pixabayService: PixabayService,
-    private youtubeService: YoutubeService,
-    private ffmpegService: FfmpegService,
-  ) {}
-  @Post('video')
-  async createVideo(@Body() body: { prompt: string }) {
+import { Thumbdeclare @Body() body: { prompt: string }) {
     const prompt = body.prompt;
-
     this.logger.log('Start Prompting...');
 
     if (!prompt || typeof prompt !== 'string' || prompt.length < 5) {
       throw new BadRequestException('Prompt is invalid');
     }
+
     const job = new this.jobModel({
       prompt,
       status: JobStatus.PENDING,
     });
-
     await job.save();
 
-    // let job = await this.jobModel.findById(newJob._id);
-    // if (!job) {
-    //   throw new InternalServerErrorException('Job not found after creation');
-    // }
     try {
       job.status = JobStatus.IN_PROGRESS;
       job.startTime = new Date();
       await job.save();
 
-      // SCRIPT GENERATION //
+      // Parallelize script and metadata generation
+      this.logger.log('Generating script and metadata...');
+      console.time('script-and-metadata');
+      const [script, tags, imageSearchQuery, description, title, videoSearchQuery] = await Promise.all([
+        this.retryOperation(() => this.scriptService.generateScript(prompt), 'Script generation'),
+        this.retryOperation(() => this.scriptService.generateTags(prompt), 'Tags generation'),
+        this.retryOperation(() => this.scriptService.generateImageSearchQuery(prompt), 'Image search query'),
+        this.retryOperation(() => this.scriptService.generateVideoDescription(prompt), 'Video description'),
+        this.retryOperation(() => this.scriptService.generateVideoTitle(prompt), 'Video title'),
+        this.retryOperation(() => this.scriptService.generateVideoSearchQuery(prompt), 'Video search query'),
+      ]);
+      console.timeEnd('script-and-metadata');
 
-      const script = await this.scriptService.generateScript(prompt);
-      if (!script)
-        throw new InternalServerErrorException('Script generation failed');
+      if (!script) throw new InternalServerErrorException('Script generation failed');
 
       job.script = script;
+      job.videoDetails = { title, description, tags, thumbnailId: null };
+      job.tags = tags;
       await job.save();
+      this.logger.log('Script and metadata generated successfully');
 
-      this.logger.log('Script generated successfully');
+      // Parallelize audio, videos, thumbnails, and music
+      this.logger.log('Generating audio, videos, thumbnails, and music...');
+      console.time('media-generation');
+      const [audioStream, videoStreams, thumbnailStream, backgroundMusicStream] = await Promise.all([
+        this.retryOperation(
+          () => this.ttsService.synthesizeStream(job.script),
+          'Text-to-Speech'
+        ),
+        this.retryOperation(
+          () => this.pixabayService.searchAndDownloadVideoStreams(videoSearchQuery, 1),
+          'Video download'
+        ).then(videos => videos.length > 0 ? videos : Promise.reject('No video clips downloaded')),
+        this.generateThumbnailWithFallback(script, imageSearchQuery, job._id.toString()),
+        this.retryOperation(
+          () => this.pixabayService.searchAndDownloadMusicStream(tags[0]),
+          'Music download'
+        ).then(music => music || null),
+      ]);
+      console.timeEnd('media-generation');
 
-      // GENERATE UTILITIES
-      const [tags, imageSearchQuery, description, title, videoSearchQuery] =
-        await Promise.all([
-          this.scriptService.generateTags(prompt),
-          this.scriptService.generateImageSearchQuery(prompt),
-          this.scriptService.generateVideoDescription(prompt),
-          this.scriptService.generateVideoTitle(prompt),
-          this.scriptService.generateVideoSearchQuery(prompt),
-        ]);
+      if (!audioStream) throw new InternalServerErrorException('Text-to-Speech generation failed');
 
-      job.videoDetails = {
-        title,
-        description,
-        tags,
-        thumbnailPath: ""
-      };
-      job.tags = tags
-      await job.save();
+      // Store streams in GridFS
+      const bucket = new GridFSBucket(this.jobModel.db);
+      const audioId = await this.storeStream(bucket, audioStream, `audio_${job._id}.mp3`);
+      job.audioId = audioId;
 
-      // AUDIO GENERATION //
-
-      const audioPath = await this.ttsService.synthesize(
-        job.script,
-        `audio_${job._id}.mp3`,
+      if (videoStreams.length === 0) throw new InternalServerErrorException('Failed to download any video clips');
+      const videoClipIds = await Promise.all(
+        videoStreams.map((stream, index) => this.storeStream(bucket, stream, `video_${job._id}_${index}.mp4`))
       );
+      job.videoClipIds = videoClipIds;
 
-      if (!audioPath)
-        throw new InternalServerErrorException(
-          'Text-To-Speech generation failed',
-        );
+      const thumbnailId = await this.storeStream(bucket, thumbnailStream, `thumbnail_${job._id}.png`);
+      job.videoDetails.thumbnailId = thumbnailId;
 
-      job.audioFilePath = audioPath;
+      if (backgroundMusicStream) {
+        job.backgroundMusicId = await this.storeStream(bucket, backgroundMusicStream, `music_${job._id}.mp3`);
+      }
+
       await job.save();
+      this.logger.log('Media assets stored successfully');
 
-      this.logger.log('Audio generated successfully');
-
-      // SUBTITLES GENERATION //
-      const transcribe = await this.speechService.transcribe(
-        'vosk',
-        job.audioFilePath,
-        job._id.toString(),
-      );
-
-      if (!transcribe)
-        throw new InternalServerErrorException(
-          'Speech-To-Text generation failed',
-        );
-
-      job.subtitleFilePath = transcribe;
-      await job.save();
-
-      this.logger.log('Subtitle generated successfully');
-
-      // THUMBNAIL GENERATION //
-
-      const thumbnailPath = await this.thumbnailService.generate(
-        script,
-        `thumbnail_${job?._id}.png`,
-      );
-
-      if (!thumbnailPath) {
-        this.logger.log(
-          'Thumbnail generation failed... implementing fallback...',
-        );
-
-        const illustrationPaths =
-          await this.pixabayService.searchAndDownloadIllustrations(
-            imageSearchQuery,
+      // Subtitle generation via FastAPI
+      this.logger.log('Generating subtitles via FastAPI...');
+      console.time('subtitles');
+      const audioBuffer = await this.streamToBuffer(audioStream); // Convert stream to buffer for FastAPI
+      const subtitleResponse = await this.retryOperation(
+        async () => {
+          const response = await firstValueFrom(
+            this.httpService.post('http://localhost:8000/subtitles', { audio: audioBuffer.toString('base64') })
           );
-
-        if (illustrationPaths.length > 0) {
-          job.videoDetails.thumbnailPath = illustrationPaths[0];
-          await job.save();
-          this.logger.log(
-            'Thanks to fallback... Thumbnail generated and downloaded successfully',
-          );
-        } else {
-          throw new InternalServerErrorException(
-            'Fallback Thumbnail generation failed',
-          );
-        }
-      } else {
-        job.videoDetails.thumbnailPath = thumbnailPath;
-        await job.save();
-        this.logger.log('Thumbnail generated successfully');
-      }
-
-      // BACKGROUND MUSIC GENERATION //
-      this.logger.log('Fetching backgroud music...');
-
-      const backgroundMusic = await this.pixabayService.searchAndDownloadMusic(
-        tags[0],
+          return response.data.subtitles ? this.saveSubtitles(response.data.subtitles, job._id.toString(), bucket) : null;
+        },
+        'Subtitle generation'
       );
-      if (backgroundMusic.length > 0) {
-        job.backgroundMusicPath = backgroundMusic[0];
-        await job.save();
-      }
+      console.timeEnd('subtitles');
 
-      // VIDEO GENERATION //
-
-      this.logger.log('Searching and downloading media...');
-      const videoClips: string[] = [];
-
-      const downloadedVideoPaths =
-        await this.pixabayService.searchAndDownloadVideos(videoSearchQuery, 1);
-
-      if (downloadedVideoPaths.length > 0) {
-        videoClips.push(downloadedVideoPaths[0]);
-      }
-
-      if (videoClips.length === 0) {
-        throw new InternalServerErrorException(
-          'Failed to download any video clips.',
-        );
-      }
-      job.videoClips = videoClips;
+      if (!subtitleResponse) throw new InternalServerErrorException('Subtitle generation failed');
+      job.subtitleId = subtitleResponse;
       await job.save();
-      this.logger.log('Media downloaded successfully.');
+      this.logger.log('Subtitles stored successfully');
 
-      // MERGE ALL MEDIA INTO FINAL VIDEO
-      const finalVideoPath = path.join(
-        process.cwd(),
-        'uploads',
-        'finals',
-        `final_${job._id}.mp4`,
-      );
-      await fs.promises.mkdir(path.dirname(finalVideoPath), {
-        recursive: true,
+      // Merge media into final video
+      this.logger.log('Merging media into final video...');
+      console.time('video-merge');
+      const finalVideoStream = await this.ffmpegService.mergeAll({
+        clipStreams: videoStreams,
+        audioStream,
+        musicStream: backgroundMusicStream,
+        subtitleId: job.subtitleId,
+        thumbnailId: job.videoDetails.thumbnailId,
+        bucket,
       });
+      const finalVideoId = await this.storeStream(bucket, finalVideoStream, `final_${job._id}.mp4`);
+      console.timeEnd('video-merge');
 
-      await this.ffmpegService.mergeAll({
-        clips: job.videoClips,
-        audioPath: job.audioFilePath,
-        musicPath: job.backgroundMusicPath,
-        subtitlePath: job.subtitleFilePath,
-        thumbnailPath: job.videoDetails.thumbnailPath,
-        outputPath: finalVideoPath,
-      });
-
-      job.finalVideoPath = finalVideoPath;
+      job.finalVideoId = finalVideoId;
       await job.save();
+      this.logger.log('Final video stored successfully');
 
-      // authenticate to youtube
-      // upload video
-
-      const youtubeResponse = await this.youtubeService.uploadVideo(
-        job.finalVideoPath,
-        title,
-        description,
-        tags,
+      // Upload to YouTube
+      this.logger.log('Uploading to YouTube...');
+      console.time('youtube-upload');
+      const youtubeResponse = await this.retryOperation(
+        () => this.youtubeService.uploadVideoStream(finalVideoStream, title, description, tags),
+        'YouTube upload'
       );
-      if (!youtubeResponse) {
-        throw new Error('Failed to upload video to YouTube.');
-      }
+      console.timeEnd('youtube-upload');
+
+      if (!youtubeResponse) throw new InternalServerErrorException('Failed to upload video to YouTube');
       job.youtubeVideoId = youtubeResponse.id;
       job.youtubeVideoUrl = `https://www.youtube.com/watch?v=${youtubeResponse.id}`;
-      await job.save();
-      this.logger.log('Video uploaded to YouTube successfully.');
-
       job.status = JobStatus.COMPLETED;
       job.endTime = new Date();
-      this.logger.log('Final video created and saved.');
+      await job.save();
+      this.logger.log('Video uploaded to YouTube successfully');
+
+      return { jobId: job._id, videoUrl: job.youtubeVideoUrl };
     } catch (error) {
       job.status = JobStatus.FAILED;
       await job.save();
-      this.logger.log(error.message);
-      this.logger.error('Job failed', error.stack);
-      throw new InternalServerErrorException('Video creation failed');
+      this.logger.error(`Job failed: ${error.message}`, error.stack);
+      throw new InternalServerErrorException(`Video creation failed: ${error.message}`);
     }
+  }
+
+  // Retry wrapper for API calls
+  private async retryOperation<T>(operation: () => Promise<T>, operationName: string, retries = this.maxRetries): Promise<T> {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const result = await operation();
+        if (result) return result;
+        throw new Error(`${operationName} returned empty result`);
+      } catch (error) {
+        this.logger.warn(`${operationName} retry ${i + 1}/${retries}: ${error.message}`);
+        if (i === retries - 1) throw error;
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
+  }
+
+  // Handle thumbnail generation with fallback 
+  private async generateThumbnailWithFallback(script: string, imageSearchQuery: string, jobId: string): Promise<Readable> {
+    try {
+      const thumbnailStream = await this.thumbnailService.generateStream(script);
+      if (thumbnailStream) return thumbnailStream;
+      this.logger.log('Thumbnail generation failed, using Pixabay fallback...');
+      const illustrationStreams = await this.pixabayService.searchAndDownloadIllustrationStreams(imageSearchQuery);
+      return illustrationStreams.length > 0 ? illustrationStreams[0] : null;
+    } catch (error) {
+      this.logger.error(`Thumbnail generation error: ${error.message}`);
+      throw new InternalServerErrorException('Thumbnail generation failed');
+    }
+  }
+
+  // Save subtitles to GridFS as SRT
+  private async saveSubtitles(subtitles: string[], jobId: string, bucket: GridFSBucket): Promise<string> {
+    const srtContent = subtitles
+      .map((text, index) => {
+        const start = index * 2; // Simplified timing
+        const end = start + 2;
+        return `${index + 1}\n${this.formatTime(start)} --> ${this.formatTime(end)}\n${text}\n\n`;
+      })
+      .join('');
+    const srtStream = Readable.from(srtContent);
+    return this.storeStream(bucket, srtStream, `subtitles_${jobId}.srt`);
+  }
+
+  // Store stream in GridFS
+  private async storeStream(bucket: GridFSBucket, stream: Readable, filename: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const uploadStream = bucket.openUploadStream(filename);
+      stream.pipe(uploadStream)
+        .on('error', reject)
+        .on('finish', () => resolve(uploadStream.id.toString()));
+    });
+  }
+
+  // Convert stream to buffer for FastAPI
+  private async streamToBuffer(stream: Readable): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      stream.on('data', chunk => chunks.push(Buffer.from(chunk)));
+      stream.on('end', () => resolve(Buffer.concat(chunks)));
+      stream.on('error', reject);
+    });
+  }
+
+  // Format time for SRT (HH:MM:SS,mmm)
+  private formatTime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    seconds %= 3600;
+    const minutes = Math.floor(seconds / 60);
+    seconds = Math.floor(seconds % 60);
+    const milliseconds = 0; // Simplified
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')},${milliseconds.toString().padStart(3, '0')}`;
   }
 }
