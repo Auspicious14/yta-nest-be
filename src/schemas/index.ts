@@ -1,20 +1,22 @@
-import { Document } from 'mongoose';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { IJob, JobStatus } from '../types/jobTypes';
-import { Model } from 'mongoose';
+import { Document } from 'mongoose';
+import { JobStatus } from '../types/jobTypes';
 
-class VideoDetails {
-  @Prop()
+export type JobDocument = Job & Document;
+
+@Schema()
+export class VideoDetails {
+  @Prop({ required: true })
   title: string;
 
-  @Prop()
+  @Prop({ required: true })
   description: string;
 
-  @Prop({ type: [String] })
+  @Prop({ type: [String], required: true })
   tags: string[];
 
-  @Prop()
-  thumbnailPath: string;
+  @Prop({ type: String, default: null }) // GridFS ID for thumbnail
+  thumbnailId: string;
 }
 
 @Schema({ timestamps: true })
@@ -28,59 +30,40 @@ export class Job {
   @Prop({ required: false })
   script: string;
 
-  @Prop({ required: false })
-  audioFilePath: string;
+  @Prop({ type: String, default: null }) // GridFS ID for audio
+  audioId: string;
 
-  @Prop({ required: false })
-  subtitleFilePath: string;
+  @Prop({ type: String, default: null }) // GridFS ID for subtitles
+  subtitleId: string;
 
-  @Prop({ type: [String] })
-  videoClips?: string[];
+  @Prop({ type: [String], default: [] }) // GridFS IDs for video clips
+  videoClipIds: string[];
 
-  @Prop()
-  finalVideoPath?: string;
+  @Prop({ type: String, default: null }) // GridFS ID for background music
+  backgroundMusicId: string;
 
-  @Prop()
-  title?: string;
+  @Prop({ type: String, default: null }) // GridFS ID for final video
+  finalVideoId: string;
 
-  @Prop()
-  description?: string;
+  @Prop({ type: String, default: null }) // YouTube video ID
+  youtubeVideoId: string;
 
-  @Prop({ type: [String] })
-  tags?: string[];
+  @Prop({ type: String, default: null }) // YouTube video URL
+  youtubeVideoUrl: string;
 
-  @Prop()
-  youtubeVideoId?: string;
+  @Prop({ type: String, default: null }) // Error message for failed jobs
+  errorMessage: string;
 
-  @Prop()
-  youtubeVideoUrl?: string;
-
-  @Prop()
-  errorMessage?: string;
-
-  @Prop()
+  @Prop({ type: Date, default: null }) // Start time of job processing
   startTime: Date;
 
-  @Prop()
+  @Prop({ type: Date, default: null }) // End time of job processing
   endTime: Date;
 
-  @Prop()
-  videoFilePath: string;
-
-  @Prop()
-  backgroundMusicPath: string;
-
-  @Prop({ type: VideoDetails })
+  @Prop({ type: VideoDetails, required: false }) // Video metadata
   videoDetails: VideoDetails;
-
-  @Prop({ required: false })
-  createdAt: Date;
-
-  @Prop({ required: false })
-  updatedAt: Date;
 }
 
 export const JobSchema = SchemaFactory.createForClass(Job);
-
 export type JobDocument = Job & Document;
 export const JobModel: Model<JobDocument> = JobSchema as any;
