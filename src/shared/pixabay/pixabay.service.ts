@@ -1,4 +1,4 @@
-import { HttpService } from '@nestjs/axios';
+/*import { HttpService } from '@nestjs/axios';
 import { Injectable } from '@nestjs/common';
 import path from 'path';
 import { lastValueFrom } from 'rxjs';
@@ -143,5 +143,194 @@ export class PixabayService {
       }
     }
     return downloadedPaths;
+  }
+}
+*/
+
+
+import { Injectable, Logger } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { ConfigService } from '@nestjs/config';
+import { Readable } from 'stream';
+import { lastValueFrom } from 'rxjs';
+import { v4 as uuidv4 } from 'uuid';
+
+@Injectable()
+export class PixabayService {
+  private readonly logger = new Logger(PixabayService.name);
+  private readonly API_KEY: string | undefined;
+  private readonly BASE_URL = 'https://pixabay.com/api';
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
+  ) {
+    this.API_KEY = this.configService.get('API_KEY');
+    if (!this.API_KEY) {
+      this.logger.error('Pixabay API key is missing');
+      throw new Error('Pixabay API key is not configured');
+    }
+  }
+
+  private async fetchStream(url: string): Promise<Readable | null> {
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(url, { responseType: 'stream' })
+      );
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error fetching stream from ${url}: ${error.message}`);
+      return null;
+    }
+  }
+
+  async searchAndDownloadVideoStreams(query: string, perPage = 3): Promise<Readable[]> {
+    this.logger.log(`Searching for videos with query: ${query}`);
+    const url = `${this.BASE_URL}/videos/`;
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(url, {
+          params: {
+            key: this.API_KEY,
+            q: query,
+            per_page: perPage,
+          },
+        })
+      );
+      const hits = response.data?.hits || [];
+      if (!hits.length) {
+        this.logger.warn(`No videos found for query: ${query}`);
+        return [];
+      }
+
+      const streams: Readable[] = [];
+      for (const hit of hits) {
+        const videoUrl = hit.videos?.large?.url || hit.videos?.medium?.url;
+        if (videoUrl) {
+          const stream = await this.fetchStream(videoUrl);
+          if (stream) {
+            stream['filename'] = `video_${uuidv4()}.mp4`; // Attach filename for GridFS
+            streams.push(stream);
+          }
+        }
+      }
+      this.logger.log(`Fetched ${streams.length} video streams for query: ${query}`);
+      return streams;
+    } catch (error) {
+      this.logger.error(`Error searching videos for query ${query}: ${error.message}`);
+      throw new Error(`Failed to fetch video streams: ${error.message}`);
+    }
+  }
+
+  async searchAndDownloadImageStreams(query: string, perPage = 3): Promise<Readable[]> {
+    this.logger.log(`Searching for images with query: ${query}`);
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(this.BASE_URL, {
+          params: {
+            key: this.API_KEY,
+            q: query,
+            per_page: perPage,
+            image_type: 'photo',
+          },
+        })
+      );
+      const hits = response.data?.hits || [];
+      if (!hits.length) {
+        this.logger.warn(`No images found for query: ${query}`);
+        return [];
+      }
+
+      const streams: Readable[] = [];
+      for (const hit of hits) {
+        const imageUrl = hit.largeImageURL;
+        if (imageUrl) {
+          const stream = await this.fetchStream(imageUrl);
+          if (stream) {
+            stream['filename'] = `image_${uuidv4()}.jpg`; // Attach filename for GridFS
+            streams.push(stream);
+          }
+        }
+      }
+      this.logger.log(`Fetched ${streams.length} image streams for query: ${query}`);
+      return streams;
+    } catch (error) {
+      this.logger.error(`Error searching images for query ${query}: ${error.message}`);
+      throw new Error(`Failed to fetch image streams: ${error.message}`);
+    }
+  }
+
+  async searchAndDownloadIllustrationStreams(query: string, perPage = 3): Promise<Readable[]> {
+    this.logger.log(`Searching for illustrations with query: ${query}`);
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(this.BASE_URL, {
+          params: {
+            key: this.API_KEY,
+            q: query,
+            per_page: perPage,
+            image_type: 'vector',
+            safesearch: true,
+          },
+        })
+      );
+      const hits = response.data?.hits || [];
+      if (!hits.length) {
+        this.logger.warn(`No illustrations found for query: ${query}`);
+        return [];
+      }
+
+      const streams: Readable[] = [];
+      for (const hit of hits) {
+        const illustrationUrl = hit.largeImageURL;
+        if (illustrationUrl) {
+          const stream = await this.fetchStream(illustrationUrl);
+          if (stream) {
+            stream['filename'] = `illustration_${uuidv4()}.jpg`; // Attach filename for GridFS
+            streams.push(stream);
+          }
+        }
+      }
+      this.logger.log(`Fetched ${streams.length} illustration streams for query: ${query}`);
+      return streams;
+    } catch (error) {
+      this.logger.error(`Error searching illustrations for query ${query}: ${error.message}`);
+      throw new Error(`Failed to fetch illustration streams: ${error.message}`);
+    }
+  }
+
+  async searchAndDownloadMusicStream(query: string, perPage = 3): Promise<Readable | null> {
+    this.logger.log(`Searching for music with query: ${query}`);
+    try {
+      const response = await lastValueFrom(
+        this.httpService.get(`${this.BASE_URL}/music/`, {
+          params: {
+            key: this.API_KEY,
+            q: query,
+            per_page: perPage,
+          },
+        })
+      );
+      const hits = response.data?.hits || [];
+      if (!hits.length) {
+        this.logger.warn(`No music found for query: ${query}`);
+        return null;
+      }
+
+      const musicUrl = hits[0].audio;
+      if (musicUrl) {
+        const stream = await this.fetchStream(musicUrl);
+        if (stream) {
+          stream['filename'] = `music_${uuidv4()}.mp3`; // Attach filename for GridFS
+          this.logger.log(`Fetched music stream for query: ${query}`);
+          return stream;
+        }
+      }
+      this.logger.warn(`No valid music stream found for query: ${query}`);
+      return null;
+    } catch (error) {
+      this.logger.error(`Error searching music for query ${query}: ${error.message}`);
+      throw new Error(`Failed to fetch music stream: ${error.message}`);
+    }
   }
 }
