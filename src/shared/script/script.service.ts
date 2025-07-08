@@ -1,73 +1,109 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { OpenRouterService } from '../openrouter/openrouter.service';
 
 @Injectable()
 export class ScriptService {
+  private readonly logger = new Logger(ScriptService.name);
+
   constructor(private readonly openRouterService: OpenRouterService) {}
 
-  private async generateWithAI(
-    systemPrompt: string,
-    userContent: string,
-  ): Promise<string> {
-    return this.openRouterService.chatCompletions(systemPrompt, userContent);
+  private async generateWithAI(systemPrompt: string, userContent: string): Promise<string> {
+    const prompt = `
+${systemPrompt}
+
+Constraints:
+1. Return only the requested content as raw text or JSON, as specified.
+2. Do not include any preamble, explanations, or meta-information (e.g., "Below is the...", "Okay", "Here are the tags", etc.).
+3. Do not use markdown, bullet points, or numbered lists unless explicitly requested.
+4. Respond in English unless otherwise specified.
+5. Keep output concise and relevant to the prompt.
+
+User Input:
+${userContent}
+    `.trim();
+
+    const response = await this.openRouterService.chatCompletions(systemPrompt, prompt);
+    if (!response) {
+      throw new Error('Empty response from OpenRouter');
+    }
+    return response.replace(/\n/g, ' ').trim(); // Remove newlines and extra spaces
   }
 
   async generateScript(prompt: string): Promise<string> {
-    console.log(`Generating script for prompt: ${prompt}`);
-    return this.generateWithAI("You're a professional youtube script writer. Generate a script based on user prompt", prompt);
+    this.logger.log(`Generating script for prompt: ${prompt}`);
+    return this.generateWithAI(
+      `You're a professional YouTube script writer. Generate a concise script based on the user prompt.`,
+      prompt
+    );
   }
 
   async generateVideoTitle(script: string): Promise<string> {
-    console.log('Generating video title...');
+    this.logger.log('Generating video title...');
     return this.generateWithAI(
-      "You're a professional video title creator. Generate a title based on user prompt",
-      script,
+      `You're a professional video title creator. Generate a concise, engaging title based on the script.`,
+      script
     );
   }
 
   async generateVideoDescription(script: string): Promise<string> {
-    console.log('Generating video description...');
+    this.logger.log('Generating video description...');
     return this.generateWithAI(
-      "You're a professional video description creator. Generate a description based on user input",
-      script,
+      `You're a professional video description creator. Generate a concise, SEO-friendly description based on the script.`,
+      script
     );
   }
 
   async generateTags(script: string): Promise<string[]> {
-    console.log('Generating video tags...');
-    const tags = await this.generateWithAI(
-      "You're a professional video tag creator. Generate a tags based on user input. It should be a one word tag based on the script title",
-      script,
-    );
-    // If tags include something like '1. **', split tags into an array by numbered list
-    if (tags.includes('1. **') || tags.match(/\d+\.\s\*\*/)) {
-      // Split by numbered list (e.g., "1. **tag**", "2. **tag2**", etc.)
-      const tagList = tags
-      .split(/\d+\.\s\*\*/)
-      .map(tag => tag.replace(/\*\*|\n|,|-/g, '').trim())
-      .filter(tag => tag.length > 0);
-      return tagList;
-    }
-    // Otherwise, try to split by comma or newline
-    return tags
-      .split(/,|\n|-/)
-      .map(tag => tag.replace(/\*\*/g, '').trim())
-      .filter(tag => tag.length > 0);
-    }
+    this.logger.log('Generating video tags...');
+    const prompt = `
+You're a professional video tag creator. Generate 5 single-word tags based on the script.
 
-    async generateImageSearchQuery(scriptSegment: string): Promise<string> {
-    console.log(`Generating image search query for segment: ${scriptSegment}`);
+Constraints:
+1. Return a JSON array of 5 single-word strings (e.g., ["tag1", "tag2", "tag3", "tag4", "tag5"]).
+2. Each tag must be a single word, relevant to the script's content.
+3. Do not include any preamble, explanations, or meta-information.
+4. Do not use markdown, bullet points, or numbered lists.
+
+Script:
+${script}
+    `.trim();
+
+    const rawResponse = await this.generateWithAI('', prompt);
+    try {
+      const tags = JSON.parse(rawResponse);
+      if (Array.isArray(tags) && tags.every(tag => typeof tag === 'string' && tag.split(' ').length === 1)) {
+        return tags.slice(0, 5);
+      }
+      throw new Error('Invalid tag format');
+    } catch (error) {
+      this.logger.warn(`Tag parsing failed, falling back to cleaning: ${error.message}`);
+      // Fallback: clean and split non-JSON response
+      const cleaned = rawResponse
+        .replace(/\[.*\]|\(.*\)|Okay|Below is|Tags:|Here are|Generated tags|[0-9]+\.|[\*\-\#]/gi, '') // Remove pretext and markdown
+        .split(/,|\n|\s+/)
+        .map(tag => tag.trim())
+        .filter(tag => tag && tag.split(' ').length === 1)
+        .slice(0, 5);
+      if (cleaned.length === 0) {
+        throw new Error('No valid tags found after cleaning');
+      }
+      return cleaned;
+    }
+  }
+
+  async generateImageSearchQuery(scriptSegment: string): Promise<string> {
+    this.logger.log(`Generating image search query for segment: ${scriptSegment}`);
     return this.generateWithAI(
-      "You're a professional image search query creator. Generate an image search query based on user input",
-      scriptSegment,
+      `You're a professional image search query creator. Generate a concise, 1-3 word search query based on the script segment.`,
+      scriptSegment
     );
   }
 
   async generateVideoSearchQuery(scriptSegment: string): Promise<string> {
-    console.log(`Generating video search query for segment: ${scriptSegment}`);
+    this.logger.log(`Generating video search query for segment: ${scriptSegment}`);
     return this.generateWithAI(
-      "You're a professional video search query creator. Generate a video search query based on user input",
-      scriptSegment,
+      `You're a professional video search query creator. Generate a concise, 1-3 word search query based on the script segment.`,
+      scriptSegment
     );
   }
 }
