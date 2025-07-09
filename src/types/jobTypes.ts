@@ -1,28 +1,20 @@
-import { Document } from 'mongoose';
+import { ObjectId } from 'mongoose';
 
-export enum JobStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
-
-export interface IJob extends Document {
+export interface Job {
+  _id: ObjectId;
   prompt: string;
-  status: JobStatus;
   script: string;
-  audioFilePath: string;
-  subtitleFilePath: string;
-  videoFilePath: string;
-  backgroundMusicPath: string;
   videoDetails: {
     title: string;
     description: string;
     tags: string[];
-    thumbnailPath: string;
+    thumbnailId: string;
   };
-  createdAt: Date;
-  updatedAt: Date;
-  startTime: Date;
-  endTime: Date;
+  audioId: string;
+  videoClipIds: string[];
+  backgroundMusicId: string | null;
+  subtitleId: string;
+  finalVideoId: string;
+  youtubeVideoId: string;
+  youtubeVideoUrl: string;
 }
