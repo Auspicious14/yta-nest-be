@@ -149,8 +149,8 @@ export class FffmpegService {
         .pipe(outputStream, { end: true })
         .on('end', async () => {
           this.logger.log('Final video merge completed');
-          if (tempSubtitlePath) await fs.unlink(tempSubtitlePath).catch(err => this.logger.warn(Failed to delete ${tempSubtitlePath}: ${err.message}));
-          if (tempThumbnailPath) await fs.unlink(tempThumbnailPath).catch(err => this.logger.warn(Failed to delete ${tempThumbnailPath}: ${err.message}));
+          if (tempSubtitlePath) await fs.unlink(tempSubtitlePath).catch(err => this.logger.warn(`Failed to delete ${tempSubtitlePath}: ${err.message})`);
+          if (tempThumbnailPath) await fs.unlink(tempThumbnailPath).catch(err => this.logger.warn(`Failed to delete ${tempThumbnailPath}: ${err.message})`);
           resolve(outputStream);
         })
         .on('error', (err) => {
