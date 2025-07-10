@@ -135,7 +135,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { google } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
-import { GridFSBucket } from 'mongoose';
+import { GridFSBucket } from 'mongodb';
+import mongoose from 'mongoose';
 
 @Injectable()
 export class YoutubeService {
@@ -248,7 +249,7 @@ export class YoutubeService {
       const videoId = response.data.id;
       const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
       this.logger.log(`Video uploaded successfully. ID: ${videoId}, URL: ${videoUrl}`);
-      return { id: videoId, url: videoUrl };
+      return { id: videoId as string, url: videoUrl as string };
     } catch (error: any) {
       this.logger.error('Error uploading video to YouTube:', error.message);
       if (error.response) {

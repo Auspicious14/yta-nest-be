@@ -9,7 +9,7 @@
 */
 
 import { Readable } from 'stream';
-import { GridFSBucket } from 'mongoose';
+import { GridFSBucket } from 'mongodb';
 
 export interface VideoMergeOptions {
   clipStreams: Readable[]; // Video clip streams from PixabayService

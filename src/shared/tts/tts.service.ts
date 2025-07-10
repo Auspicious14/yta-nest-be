@@ -36,7 +36,7 @@ export class TTSService {
 
 import { Injectable, Logger } from '@nestjs/common';
 import { EdgeTTS } from '@andresaya/edge-tts';
-import { Readable } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import ffmpeg from 'fluent-ffmpeg';
 
 @Injectable()
@@ -80,7 +80,7 @@ export class TTSService {
 
   private async preprocessAudio(inputStream: Readable): Promise<Readable> {
     return new Promise((resolve, reject) => {
-      const outputStream = new Readable({ read() {} });
+      const outputStream = new PassThrough();
       ffmpeg(inputStream)
         .audioFrequency(16000)
         .audioChannels(1)

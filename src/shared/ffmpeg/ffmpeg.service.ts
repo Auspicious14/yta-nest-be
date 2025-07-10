@@ -68,7 +68,7 @@ export class FffmpegService {
           resolve(fileStream);
         })
         .on('error', (err) => {
-          this.logger.error(Clip concatenation failed: ${err.message});
+          this.logger.error(`Clip concatenation failed: ${err.message}`);
           reject(err);
         })
         .run();
@@ -87,19 +87,19 @@ export class FffmpegService {
 
     let tempSubtitlePath: string | null = null;
     if (subtitleId) {
-      tempSubtitlePath = path.resolve('tmp', subtitles-${uuidv4()}.srt);
+      tempSubtitlePath = path.resolve('tmp', `subtitles-${uuidv4()}.srt`);
       await this.writeGridFSToFile(bucket, subtitleId, tempSubtitlePath);
     }
 
     let tempThumbnailPath: string | null = null;
     if (thumbnailId) {
-      tempThumbnailPath = path.resolve('tmp', thumbnail-${uuidv4()}.png);
+      tempThumbnailPath = path.resolve('tmp', `thumbnail-${uuidv4()}.png`);
       await this.writeGridFSToFile(bucket, thumbnailId, tempThumbnailPath);
     }
 
     return new Promise((resolve, reject) => {
       const outputStream = new PassThrough();
-      outputStream['filename'] = final_${uuidv4()}.mp4;
+      outputStream['filename'] = `final_${uuidv4()}.mp4`;
 
       let command = ffmpeg()
         .input(videoStream)
@@ -122,13 +122,13 @@ export class FffmpegService {
       }
 
       if (tempSubtitlePath) {
-        filters.push(subtitles=${tempSubtitlePath}:force_style='FontSize=24,PrimaryColour=&Hffffff&,OutlineColour=&H000000&,BorderStyle=3');
+        filters.push(`subtitles=${tempSubtitlePath}:force_style='FontSize=24,PrimaryColour=&Hffffff&,OutlineColour=&H000000&,BorderStyle=3'`);
       }
 
       if (tempThumbnailPath) {
-        filters.push(movie=${tempThumbnailPath}[logo];[0:v][logo]overlay=W-w-10:10:enable='lte(t,5)'[vout]);
+        filters.push(`movie=${tempThumbnailPath}[logo];[0:v][logo]overlay=W-w-10:10:enable='lte(t,5)'[vout]);
         outputMap[0] = '-map';
-        outputMap[1] = '[vout]';
+        outputMap[1] = '[vout]'`;
       }
 
       if (filters.length > 0) {
@@ -154,7 +154,7 @@ export class FffmpegService {
           resolve(outputStream);
         })
         .on('error', (err) => {
-          this.logger.error(Final merge failed: ${err.message});
+          this.logger.error(`Final merge failed: ${err.message}`);
           reject(err);
         })
         .run();
@@ -169,11 +169,11 @@ export class FffmpegService {
       downloadStream
         .pipe(fileWriteStream)
         .on('finish', () => {
-          this.logger.log(Wrote GridFS file ${fileId} to ${outputPath});
+          this.logger.log(`Wrote GridFS file ${fileId} to ${outputPath}`);
           resolve();
         })
         .on('error', (err) => {
-          this.logger.error(Failed to write GridFS file ${fileId}: ${err.message});
+          this.logger.error(`Failed to write GridFS file ${fileId}: ${err.message}`);
           reject(err);
         });
     });
