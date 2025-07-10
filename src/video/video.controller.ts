@@ -6,7 +6,8 @@ import {
   InternalServerErrorException,
 } from "@nestjs/common";
 import { HttpService } from "@nestjs/axios";
-import GridFSBucket, { Connection, Types } from "mongoose";
+import { Connection, Types } from "mongoose";
+import { Db, GridFSBucket } from "mongodb";
 import { Readable } from "stream";
 import { lastValueFrom } from "rxjs";
 import { InjectConnection } from "@nestjs/mongoose";
@@ -121,7 +122,7 @@ export class VideoController {
     }
 
     this.logger.log(`Starting video generation for prompt: ${prompt}`);
-    const bucket = new GridFSBucket(this.connection.db);
+    const bucket = new GridFSBucket(this.connection.db as Db);
     const job: any = {
       _id: new Types.ObjectId(),
       prompt,
