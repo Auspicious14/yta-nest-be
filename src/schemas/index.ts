@@ -1,8 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Model } from 'mongoose';
 import { JobStatus } from '../types/jobTypes';
 
-export type JobDocument = Job & Document;
 
 @Schema()
 export class VideoDetails {

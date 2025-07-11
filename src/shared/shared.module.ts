@@ -4,7 +4,6 @@ import { ScriptModule } from './script/script.module';
 import { TTSModule } from './tts/tts.module';
 import { ThumbNailModule } from './thumbnail/thumbnail.module';
 import { PixabayModule } from './pixabay/pixabay.module';
-import { SpeechModule } from './speech/speech.module';
 import { FfmPegModle } from './ffmpeg/ffmpeg.module';
 
 @Global()
@@ -15,7 +14,6 @@ import { FfmPegModle } from './ffmpeg/ffmpeg.module';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
-    SpeechModule,
     FfmPegModle,
   ],
   exports: [
@@ -24,7 +22,6 @@ import { FfmPegModle } from './ffmpeg/ffmpeg.module';
     ScriptModule,
     ThumbNailModule,
     PixabayModule,
-    SpeechModule,
     FfmPegModle,
   ],
 })

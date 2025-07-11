@@ -165,7 +165,7 @@ export class PixabayService {
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {
-    this.API_KEY = this.configService.get('API_KEY');
+    this.API_KEY = this.configService.get("PIXABAY_API_KEY");
     if (!this.API_KEY) {
       this.logger.error('Pixabay API key is missing');
       throw new Error('Pixabay API key is not configured');

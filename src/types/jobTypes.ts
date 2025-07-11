@@ -18,3 +18,9 @@ export interface Job {
   youtubeVideoId: string;
   youtubeVideoUrl: string;
 }
+
+export enum JobStatus {
+  PENDING = 'PENDING',
+  INPROGRESS = 'INPROGRESS',
+  
+}

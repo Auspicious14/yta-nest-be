@@ -11,7 +11,7 @@ import { Db, GridFSBucket } from "mongodb";
 import { Readable } from "stream";
 import { lastValueFrom } from "rxjs";
 import { InjectConnection } from "@nestjs/mongoose";
-import { FffmpegService } from "src/shared/ffmpeg/ffmpeg.service";
+import { FfmpegService } from "src/shared/ffmpeg/ffmpeg.service";
 import { PixabayService } from "src/shared/pixabay/pixabay.service";
 import { ScriptService } from "src/shared/script/script.service";
 import { ThumbNailService } from "src/shared/thumbnail/thumbnail.service";
@@ -28,7 +28,7 @@ export class VideoController {
     private readonly pixabayService: PixabayService,
     private readonly thumbnailService: ThumbNailService,
     private readonly ttsService: TTSService,
-    private readonly ffmpegService: FffmpegService,
+    private readonly ffmpegService: FfmpegService,
     private readonly youtubeService: YoutubeService,
     private readonly httpService: HttpService,
     @InjectConnection() private readonly connection: Connection,
