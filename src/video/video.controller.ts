@@ -19,7 +19,7 @@ import { TTSService } from "src/shared/tts/tts.service";
 import { YoutubeService } from "./video.service";
 import { Job } from "src/types/jobTypes";
 
-@Controller("video")
+@Controller("automate/video")
 export class VideoController {
   private readonly logger = new Logger(VideoController.name);
 
