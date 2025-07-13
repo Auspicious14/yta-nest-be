@@ -260,7 +260,7 @@ export class VideoController {
       const audioBuffer = await this.streamToBuffer(audioDownloadStream);
       const subtitleResponse = await this.retryOperation(async () => {
         const response = await lastValueFrom(
-          this.httpService.post("http://localhost:8000/subtitles", {
+          this.httpService.post("https://yta-subtitle-microservice.onrender.com/subtitles", {
             audio: audioBuffer.toString("base64"),
           }),
         );
