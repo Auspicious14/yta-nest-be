@@ -13,6 +13,7 @@ import { lastValueFrom } from "rxjs";
 import { InjectConnection } from "@nestjs/mongoose";
 import { FfmpegService } from "src/shared/ffmpeg/ffmpeg.service";
 import { PixabayService } from "src/shared/pixabay/pixabay.service";
+import { MusicService } from "src/shared/music/music.service";
 import { ScriptService } from "src/shared/script/script.service";
 import { ThumbNailService } from "src/shared/thumbnail/thumbnail.service";
 import { TTSService } from "src/shared/tts/tts.service";
@@ -26,6 +27,7 @@ export class VideoController {
   constructor(
     private readonly scriptService: ScriptService,
     private readonly pixabayService: PixabayService,
+    private readonly musicService: MusicService,
     private readonly thumbnailService: ThumbNailService,
     private readonly ttsService: TTSService,
     private readonly ffmpegService: FfmpegService,
@@ -170,6 +172,7 @@ export class VideoController {
           () => this.scriptService.generateVideoSearchQuery(prompt),
           "Video query generation",
         ),
+
       ]);
       job.script = script;
       job.videoDetails.title = title;
@@ -178,79 +181,80 @@ export class VideoController {
       console.timeEnd("script-and-metadata");
 
       // Step 2: Generate media (audio, videos, thumbnail, music)
-      // console.time("media-generation");
-      // const [audioStream, videoStreams, thumbnailStream, musicStream] =
-      //   await Promise.all([
-      //     this.retryOperation(
-      //       () =>
-      //         this.ttsService.synthesizeStream(
-      //           script,
-      //           `audio_${job._id.toString()}.wav`,
-      //         ),
-      //       "Audio generation",
-      //     ),
-      //     this.retryOperation(
-      //       () =>
-      //         this.pixabayService.searchAndDownloadVideoStreams(
-      //           videoSearchQuery,
-      //         ),
-      //       "Video search",
-      //     ),
-      //     this.retryOperation(
-      //       () =>
-      //         this.generateThumbnailWithFallback(
-      //           script,
-      //           imageSearchQuery,
-      //           job._id.toString(),
-      //         ),
-      //       "Thumbnail generation",
-      //     ),
-      //     this.retryOperation(
-      //       () =>
-      //         this.pixabayService.searchAndDownloadMusicStream(
-      //           videoSearchQuery,
-      //         ),
-      //       "Music search",
-      //     ),
-      //   ]);
-      // console.timeEnd("media-generation");
+      console.time("media-generation");
+      const [audioStream, videoStreams, thumbnailStream, musicData] =
+        await Promise.all([
+          this.retryOperation(
+            () =>
+              this.ttsService.synthesizeStream(
+                script,
+                `audio_${job._id.toString()}.wav`,
+              ),
+            "Audio generation",
+          ),
+          this.retryOperation(
+            () => this.musicService.searchSounds(prompt),
+            "Music search",
+          ),
 
-      // // Store media in GridFS
-      // console.time("store-media");
-      // const [audioId, videoClipIds, thumbnailId, backgroundMusicId] =
-      //   await Promise.all([
-      //     this.storeStream(
-      //       bucket,
-      //       audioStream,
-      //       `audio_${job._id.toString()}.wav`,
-      //     ),
-      //     Promise.all(
-      //       videoStreams.map((stream, i) =>
-      //         this.storeStream(
-      //           bucket,
-      //           stream,
-      //           `video_${job._id.toString()}_${i}.mp4`,
-      //         ),
-      //       ),
-      //     ),
-      //     this.storeStream(
-      //       bucket,
-      //       thumbnailStream,
-      //       `thumbnail_${job._id.toString()}.png`,
-      //     ),
-      //     musicStream
-      //       ? this.storeStream(
-      //           bucket,
-      //           musicStream,
-      //           `music_${job._id.toString()}.wav`,
-      //         )
-      //       : Promise.resolve(null),
-      //   ]);
-      // job.audioId = audioId;
-      // job.videoClipIds = videoClipIds;
-      // job.videoDetails.thumbnailId = thumbnailId;
-      // job.backgroundMusicId = backgroundMusicId;
-      // console.timeEnd("store-media");
+          this.retryOperation(
+            () =>
+              this.pixabayService.searchAndDownloadVideoStreams(
+                videoSearchQuery,
+              ),
+            "Video search",
+          ),
+          this.retryOperation(
+            () =>
+              this.generateThumbnailWithFallback(
+                script,
+                imageSearchQuery,
+                job._id.toString(),
+              ),
+            "Thumbnail generation",
+          ),
+        ]);
+      console.timeEnd("media-generation");
+
+      // Store media in GridFS
+      console.time("store-media");
+      const [audioId, videoClipIds, thumbnailId] =
+        await Promise.all([
+          this.storeStream(
+            bucket,
+            audioStream,
+            `audio_${job._id.toString()}.wav`,
+          ),
+          Promise.all(
+            videoStreams.map((stream, i) =>
+              this.storeStream(
+                bucket,
+                stream,
+                `video_${job._id.toString()}_${i}.mp4`,
+              ),
+            ),
+          ),
+          this.storeStream(
+            bucket,
+            thumbnailStream,
+            `thumbnail_${job._id.toString()}.png`,
+          ),
+        ]);
+      job.audioId = audioId;
+      job.videoClipIds = videoClipIds;
+      job.videoDetails.thumbnailId = thumbnailId;
+      console.timeEnd("store-media");
+
+      // Select a random music track from the search results
+      const selectedMusic = musicData[Math.floor(Math.random() * musicData.length)];
+      if (selectedMusic) {
+        job.backgroundMusicId = await this.musicService.downloadMusicAndSaveToGridFS(
+          selectedMusic.public_id,
+          `music_${job._id.toString()}.mp3`,
+        );
+      } else {
+        this.logger.warn("No background music found for the given prompt.");
+      }
 
       // // Step 3: Generate subtitles via FastAPI VOSK
       // console.time("subtitle-generation");
