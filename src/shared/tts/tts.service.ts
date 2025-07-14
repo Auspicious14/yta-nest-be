@@ -1,43 +1,9 @@
-/*import { EdgeTTS } from '@andresaya/edge-tts';
-import { Injectable } from '@nestjs/common';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-
-@Injectable()
-export class TTSService {
-  constructor(private tts: EdgeTTS) {
-    
-  }
-
-  async synthesize(
-    text: string,
-    filename: string,
-    voice: string = 'en-US-AriaNeural',
-  ) {
-    const audioDir = path.join(process.cwd(), 'src', 'uploads', 'audio');
-    // await fs.mkdir(audioDir, { recursive: true });
-    const audioFilePath = path.join(audioDir, filename);
-
-    await this.tts.synthesize(text, voice, {
-      rate: '0%',
-      pitch: '0Hz',
-      volume: '0%',
-    });
-
-    const audioBuffer = this.tts.toRaw();
-    await fs.writeFile(audioFilePath, audioBuffer);
-
-    console.log(`Text converted to speech and saved to ${audioFilePath}`);
-    return audioFilePath;
-  }
-}
-*/
-
-
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common'; 
 import { EdgeTTS } from '@andresaya/edge-tts';
 import { PassThrough, Readable } from 'stream';
-import ffmpeg from 'fluent-ffmpeg';
+import * as ffmpeg from 'fluent-ffmpeg';
+import * as path from 'path';
+import * as fs from 'fs/promises';
 
 @Injectable()
 export class TTSService {
@@ -65,13 +31,13 @@ export class TTSService {
       let audioStream = Readable.from(audioBuffer);
 
       // Preprocess to 16kHz mono WAV for VOSK compatibility
-      audioStream = await this.preprocessAudio(audioStream);
+      const processedAudioStream = await this.preprocessAudio(audioStream);
 
       // Attach filename for GridFS storage
-      audioStream['filename'] = filename || `audio_${Date.now()}.wav`;
+      processedAudioStream['filename'] = filename || `audio_${Date.now()}.wav`;
 
-      this.logger.log(`Audio stream generated successfully for: ${audioStream['filename']}`);
-      return audioStream;
+      this.logger.log(`Audio stream generated successfully for: ${processedAudioStream['filename']}`);
+       return processedAudioStream;
     } catch (error) {
       this.logger.error(`Audio generation failed: ${error.message}`);
       throw new Error(`Failed to generate audio stream: ${error.message}`);
@@ -81,7 +47,20 @@ export class TTSService {
   private async preprocessAudio(inputStream: Readable): Promise<Readable> {
     return new Promise((resolve, reject) => {
       const outputStream = new PassThrough();
-      ffmpeg(inputStream)
+      
+      // Ensure the input stream is not already ended
+      if (inputStream.readableEnded) {
+        reject(new Error('Input stream has already ended'));
+        return;
+      }
+      
+      ffmpeg()
+        .input(inputStream)
+        .inputOptions([
+          '-f s16le', // Signed 16-bit little-endian PCM
+          '-ar 24000', // Audio sample rate (common for EdgeTTS output)
+          '-ac 1'      // Audio channels (EdgeTTS is typically mono)
+        ])
         .audioFrequency(16000)
         .audioChannels(1)
         .format('wav')
