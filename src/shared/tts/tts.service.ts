@@ -4,12 +4,21 @@ import { PassThrough, Readable } from "stream";
 import * as ffmpeg from "fluent-ffmpeg";
 import * as path from "path";
 import * as fs from "fs/promises";
+import { StorageService } from "../storage/storage.service";
+import { UtilityService } from "../utility/utility.service";
+import { Job } from "src/types/jobTypes";
+import { GridFSBucket } from "mongodb";
+import { Types } from "mongoose";
 
 @Injectable()
 export class TTSService {
   private readonly logger = new Logger(TTSService.name);
 
-  constructor(private readonly tts: EdgeTTS) {}
+  constructor(
+    private readonly tts: EdgeTTS,
+    private readonly storageService: StorageService,
+    private readonly utilityService: UtilityService,
+  ) {}
 
   async synthesizeStream(
     text: string,
@@ -126,5 +135,35 @@ export class TTSService {
         })
         .pipe(outputStream, { end: true });
     });
+  }
+
+  /**
+   * Processes the raw audio stream to 16kHz mono WAV format and stores it in GridFS.
+   * @param job The current job object.
+   * @param rawAudioId The ID of the raw audio stream in GridFS.
+   */
+  async processAndStoreAudio(
+    job: Job,
+    rawAudioId: string,
+  ): Promise<void> {
+    this.logger.log("[processAndStoreAudio] Starting audio processing and storage.");
+    console.time("process-and-store-audio");
+    const rawAudioReadStream = this.storageService.openDownloadStream(
+      rawAudioId,
+    );
+    const processedAudioStream = await this.utilityService.retryOperation(
+      () =>
+        this.convertTo16kHzMonoWav(
+          rawAudioReadStream,
+          `audio_${job._id.toString()}.wav`,
+        ),
+      "Audio preprocessing",
+    );
+    const audioId = await this.storageService.storeStream(
+      processedAudioStream,
+      `audio_${job._id.toString()}.wav`,
+    );
+    job.audioId = audioId;
+    console.timeEnd("process-and-store-audio");
   }
 }

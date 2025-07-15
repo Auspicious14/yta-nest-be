@@ -43,6 +43,14 @@ ${userContent}
     );
   }
 
+  async summarizeScript(script: string): Promise<string> {
+    this.logger.log("Summarizing script...");
+    return this.generateWithAI(
+      `You're a professional summarizer. Condense the following script into a concise, 1-2 sentence summary.`, 
+      script,
+    );
+  }
+
   async generateVideoTitle(script: string): Promise<string> {
     this.logger.log("Generating video title...");
     return this.generateWithAI(
@@ -125,5 +133,49 @@ ${script}
       `You're a professional video search query creator. Generate a concise, 1-3 word search query based on the script segment.`,
       scriptSegment,
     );
+  }
+
+  /**
+   * Generates script and metadata for the video based on the prompt.
+   * @param prompt The user's input prompt.
+   * @returns An object containing the script, title, description, tags, image search query, and video search query.
+   */
+  async generateScriptAndMetadata(
+    prompt: string,
+  ): Promise<{
+    script: string;
+    title: string;
+    description: string;
+    tags: string[];
+    imageSearchQuery: string;
+    videoSearchQuery: string;
+  }> {
+    this.logger.log(`Generating script and metadata for prompt: ${prompt}`);
+    console.time("script-and-metadata");
+    const script = await this.generateScript(prompt);
+    const summarizedScript = await this.summarizeScript(script);
+
+    const [
+      title,
+      description,
+      tags,
+      imageSearchQuery,
+      videoSearchQuery,
+    ] = await Promise.all([
+      this.generateVideoTitle(summarizedScript),
+      this.generateVideoDescription(summarizedScript),
+      this.generateTags(summarizedScript),
+      this.generateImageSearchQuery(summarizedScript),
+      this.generateVideoSearchQuery(script),
+    ]);
+    console.timeEnd("script-and-metadata");
+    return {
+      script,
+      title,
+      description,
+      tags,
+      imageSearchQuery,
+      videoSearchQuery,
+    };
   }
 }

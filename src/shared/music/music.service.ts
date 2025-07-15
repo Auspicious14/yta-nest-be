@@ -1,11 +1,13 @@
-import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import axios from "axios";
 import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
-import { Db, GridFSBucket } from "mongodb";
 import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
+import { StorageService } from "../storage/storage.service";
+import { UtilityService } from "../utility/utility.service";
+import { Job } from "src/types/jobTypes";
+import { Injectable, Logger } from "@nestjs/common";
 
 @Injectable()
 export class MusicService {
@@ -17,6 +19,8 @@ export class MusicService {
   constructor(
     private configService: ConfigService,
     @InjectConnection() private readonly connection: Connection,
+    private readonly storageService: StorageService,
+    private readonly utilityService: UtilityService,
   ) {
     this.cloudinaryCloudName = this.configService.get<string>(
       "CLOUDINARY_CLOUD_NAME",
@@ -35,8 +39,8 @@ export class MusicService {
     });
   }
 
-  async searchSounds(query: string): Promise<any> {
-    this.logger.log(`[searchSounds] Searching for sounds with query: ${query}`);
+  async searchSounds(): Promise<any> {
+    this.logger.log(`[searchSounds] Searching for sounds`);
     try {
       const result = await cloudinary.api.resources({
         type: "upload",
@@ -79,7 +83,10 @@ export class MusicService {
   ): Promise<string> {
     try {
       const musicStream = await this.getCloudinaryMusicStream(publicId);
-      const gridFsId = await this.saveStreamToGridFS(musicStream, filename);
+      const gridFsId = await this.storageService.storeStream(
+        musicStream,
+        filename,
+      );
       return gridFsId;
     } catch (error) {
       this.logger.error(
@@ -107,22 +114,28 @@ export class MusicService {
     }
   }
 
-  async saveStreamToGridFS(
-    stream: Readable,
-    filename: string,
-  ): Promise<string> {
-    const bucket = new GridFSBucket(this.connection.db as Db);
-    return new Promise((resolve, reject) => {
-      const uploadStream = bucket.openUploadStream(filename);
-      stream
-        .pipe(uploadStream)
-        .on("finish", () => resolve(uploadStream.id.toString()))
-        .on("error", (err) => {
-          this.logger.error(
-            `Failed to store stream ${filename} to GridFS: ${err.message}`,
-          );
-          reject(err);
-        });
-    });
+  async selectAndStoreBackgroundMusic(
+    job: Job,
+    musicData: any[],
+  ): Promise<void> {
+    this.logger.log(
+      "[selectAndStoreBackgroundMusic] Selecting and storing background music.",
+    );
+    console.time("select-and-store-music");
+    const selectedMusic =
+      musicData[Math.floor(Math.random() * musicData.length)];
+    if (selectedMusic) {
+      job.backgroundMusicId = await this.utilityService.retryOperation(
+        () =>
+          this.downloadMusicAndSaveToGridFS(
+            selectedMusic.public_id,
+            `music_${job._id.toString()}.mp3`,
+          ),
+        "Background music download and storage",
+      );
+    } else {
+      this.logger.warn("No background music found for the given prompt.");
+    }
+    console.timeEnd("select-and-store-music");
   }
 }
