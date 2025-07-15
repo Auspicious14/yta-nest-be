@@ -3,7 +3,7 @@ import { ObjectId } from "mongoose";
 export interface Job {
   _id: string;
   prompt: string;
-  script: string;
+  script: string | null;
   videoDetails: VideoDetails;
   audioId: string | null;
   videoClipIds: string[];

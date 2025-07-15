@@ -153,9 +153,10 @@ export class VideoController {
 
     this.logger.log(`Starting video generation for prompt: ${prompt}`);
     const bucket = new GridFSBucket(this.connection.db as Db);
-    const job: any = {
+    const job: Job = {
       _id: new Types.ObjectId().toString(),
       prompt,
+      script: null,
       videoDetails: { title: "", description: "", tags: [], thumbnailId: "" },
       videoClipIds: [],
       backgroundMusicId: null,
@@ -171,8 +172,14 @@ export class VideoController {
     }
 
     try {
-      const { script, title, description, tags, imageSearchQuery, videoSearchQuery } =
-        await this._generateScriptAndMetadata(prompt, job);
+      const {
+        script,
+        title,
+        description,
+        tags,
+        imageSearchQuery,
+        videoSearchQuery,
+      } = await this._generateScriptAndMetadata(prompt, job);
       job.script = script;
       job.videoDetails.title = title;
       job.videoDetails.description = description;
@@ -182,20 +189,17 @@ export class VideoController {
       console.time("media-generation-and-raw-storage");
       const [rawAudioId, musicData, videoClipIds, thumbnailId] =
         await Promise.all([
-          this.retryOperation(
-            async () => {
-              const rawAudioStream = await this.ttsService.synthesizeStream(
-                script,
-                `raw_audio_${job._id.toString()}.raw`,
-              );
-              return this.storeStream(
-                bucket,
-                rawAudioStream,
-                `raw_audio_${job._id.toString()}.raw`,
-              );
-            },
-            "Raw Audio generation and storage",
-          ),
+          this.retryOperation(async () => {
+            const rawAudioStream = await this.ttsService.synthesizeStream(
+              script,
+              `raw_audio_${job._id.toString()}.raw`,
+            );
+            return this.storeStream(
+              bucket,
+              rawAudioStream,
+              `raw_audio_${job._id.toString()}.raw`,
+            );
+          }, "Raw Audio generation and storage"),
           this.retryOperation(
             () => this.musicService.searchSounds(videoSearchQuery),
             "Music search",
@@ -204,21 +208,18 @@ export class VideoController {
             () => this._searchAndStoreVideoClips(job, bucket, videoSearchQuery),
             "Video search and storage",
           ),
-          this.retryOperation(
-            async () => {
-              const thumbnailStream = await this.generateThumbnailWithFallback(
-                script,
-                imageSearchQuery,
-                job._id.toString(),
-              );
-              return this.storeStream(
-                bucket,
-                thumbnailStream,
-                `thumbnail_${job._id.toString()}.png`,
-              );
-            },
-            "Thumbnail generation and storage",
-          ),
+          this.retryOperation(async () => {
+            const thumbnailStream = await this.generateThumbnailWithFallback(
+              script,
+              imageSearchQuery,
+              job._id.toString(),
+            );
+            return this.storeStream(
+              bucket,
+              thumbnailStream,
+              `thumbnail_${job._id.toString()}.png`,
+            );
+          }, "Thumbnail generation and storage"),
         ]);
       job.videoClipIds = videoClipIds;
       job.videoDetails.thumbnailId = thumbnailId;
@@ -348,16 +349,14 @@ export class VideoController {
   private async _generateScriptAndMetadata(
     prompt: string,
     job: Job,
-  ): Promise<
-    {
-      script: string;
-      title: string;
-      description: string;
-      tags: string[];
-      imageSearchQuery: string;
-      videoSearchQuery: string;
-    }
-  > {
+  ): Promise<{
+    script: string;
+    title: string;
+    description: string;
+    tags: string[];
+    imageSearchQuery: string;
+    videoSearchQuery: string;
+  }> {
     console.time("script-and-metadata");
     const [
       script,
@@ -393,7 +392,14 @@ export class VideoController {
       ),
     ]);
     console.timeEnd("script-and-metadata");
-    return { script, title, description, tags, imageSearchQuery, videoSearchQuery };
+    return {
+      script,
+      title,
+      description,
+      tags,
+      imageSearchQuery,
+      videoSearchQuery,
+    };
   }
 
   /**
@@ -408,7 +414,9 @@ export class VideoController {
     rawAudioId: string,
   ): Promise<void> {
     console.time("process-and-store-audio");
-    const rawAudioReadStream = bucket.openDownloadStream(new Types.ObjectId(rawAudioId));
+    const rawAudioReadStream = bucket.openDownloadStream(
+      new Types.ObjectId(rawAudioId),
+    );
     const processedAudioStream = await this.retryOperation(
       () =>
         this.ttsService.convertTo16kHzMonoWav(
@@ -462,9 +470,8 @@ export class VideoController {
     bucket: GridFSBucket,
     videoSearchQuery: string,
   ): Promise<string[]> {
-    const videoStreams = await this.pixabayService.searchAndDownloadVideoStreams(
-      videoSearchQuery,
-    );
+    const videoStreams =
+      await this.pixabayService.searchAndDownloadVideoStreams(videoSearchQuery);
     return Promise.all(
       videoStreams.map((stream, i) =>
         this.storeStream(
