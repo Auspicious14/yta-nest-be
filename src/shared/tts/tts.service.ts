@@ -1,9 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common'; 
-import { EdgeTTS } from '@andresaya/edge-tts';
-import { PassThrough, Readable } from 'stream';
-import * as ffmpeg from 'fluent-ffmpeg';
-import * as path from 'path';
-import * as fs from 'fs/promises';
+import { Injectable, Logger } from "@nestjs/common";
+import { EdgeTTS } from "@andresaya/edge-tts";
+import { PassThrough, Readable } from "stream";
+import * as ffmpeg from "fluent-ffmpeg";
+import * as path from "path";
+import * as fs from "fs/promises";
 
 @Injectable()
 export class TTSService {
@@ -11,65 +11,117 @@ export class TTSService {
 
   constructor(private readonly tts: EdgeTTS) {}
 
-  async synthesizeStream(text: string, filename: string, voice: string = 'en-US-AriaNeural'): Promise<Readable> {
-    this.logger.log(`Generating audio stream for text: ${text.slice(0, 50)}...`);
+  async synthesizeStream(
+    text: string,
+    filename: string,
+    voice: string = "en-US-AriaNeural",
+  ): Promise<Readable> {
+    this.logger.log(
+      `[synthesizeStream] Attempting to generate audio stream for text: ${text.slice(0, 50)}...`,
+    );
 
     try {
+      this.logger.log(`[synthesizeStream] Calling EdgeTTS.synthesize...`);
       // Generate audio using EdgeTTS
       await this.tts.synthesize(text, voice, {
-        rate: '0%',
-        pitch: '0Hz',
-        volume: '0%',
+        rate: "0%",
+        pitch: "0Hz",
+        volume: "0%",
       });
 
       const audioBuffer = this.tts.toRaw();
+      this.logger.log(
+        `[synthesizeStream] EdgeTTS.toRaw() returned buffer of length: ${audioBuffer ? audioBuffer.length : 0}`,
+      );
       if (!audioBuffer || audioBuffer.length === 0) {
-        throw new Error('Empty audio buffer generated');
+        throw new Error("Empty audio buffer generated");
       }
 
       // Convert buffer to stream
       let audioStream = Readable.from(audioBuffer);
+      this.logger.log(
+        `[synthesizeStream] Converted audio buffer to readable stream.`,
+      );
 
-      // Preprocess to 16kHz mono WAV for VOSK compatibility
-      const processedAudioStream = await this.preprocessAudio(audioStream);
-
-      // Attach filename for GridFS storage
-      processedAudioStream['filename'] = filename || `audio_${Date.now()}.wav`;
-
-      this.logger.log(`Audio stream generated successfully for: ${processedAudioStream['filename']}`);
-       return processedAudioStream;
+      this.logger.log(
+        `[synthesizeStream] Raw audio stream generated successfully for: ${filename}`,
+      );
+      // Attach filename for GridFS storage (optional, can be done later)
+      audioStream["filename"] = filename || `audio_${Date.now()}.raw`;
+      return audioStream;
     } catch (error) {
       this.logger.error(`Audio generation failed: ${error.message}`);
       throw new Error(`Failed to generate audio stream: ${error.message}`);
     }
   }
 
-  private async preprocessAudio(inputStream: Readable): Promise<Readable> {
+  async convertTo16kHzMonoWav(
+    inputStream: Readable,
+    filename: string,
+  ): Promise<Readable> {
+    this.logger.log(`[convertTo16kHzMonoWav] Starting audio preprocessing.`);
     return new Promise((resolve, reject) => {
       const outputStream = new PassThrough();
-      
-      // Ensure the input stream is not already ended
+
       if (inputStream.readableEnded) {
-        reject(new Error('Input stream has already ended'));
+        this.logger.error(
+          "[convertTo16kHzMonoWav] Input stream has already ended",
+        );
+        reject(new Error("Input stream has already ended"));
         return;
       }
-      
+
+      this.logger.log("[convertTo16kHzMonoWav] Initializing ffmpeg command.");
       ffmpeg()
         .input(inputStream)
         .inputOptions([
-          '-f s16le', // Signed 16-bit little-endian PCM
-          '-ar 24000', // Audio sample rate (common for EdgeTTS output)
-          '-ac 1'      // Audio channels (EdgeTTS is typically mono)
+          "-t 30", // Add a timeout of 30 seconds to prevent indefinite hangs
+          "-f s16le", // Signed 16-bit little-endian PCM
+          "-ar 24000", // Audio sample rate (common for EdgeTTS output)
+          "-ac 1", // Audio channels (EdgeTTS is typically mono)
         ])
         .audioFrequency(16000)
         .audioChannels(1)
-        .format('wav')
-        .on('error', (err) => {
-          this.logger.error(`Audio preprocessing failed: ${err.message}`);
+        .format("wav")
+        .on("start", (commandLine) => {
+          this.logger.log(
+            `[convertTo16kHzMonoWav] Ffmpeg command started: ${commandLine}`,
+          );
+        })
+        .on("codecData", (data) => {
+          this.logger.log(
+            `[convertTo16kHzMonoWav] Ffmpeg codec data: ${JSON.stringify(data)}`,
+          );
+        })
+        .on("progress", (progress) => {
+          this.logger.log(
+            `[convertTo16kHzMonoWav] Ffmpeg progress: ${progress.percent ? progress.percent.toFixed(2) + "%" : "N/A"} processed`,
+          );
+        })
+        .on("error", (err) => {
+          this.logger.error(
+            `[convertTo16kHzMonoWav] Audio preprocessing failed: ${err.message}`,
+          );
           reject(err);
         })
-        .on('end', () => {
-          this.logger.log('Audio preprocessing completed');
+        .on("stderr", (stderrOutput) => {
+          if (
+            stderrOutput.toLowerCase().includes("error") ||
+            stderrOutput.toLowerCase().includes("failed")
+          ) {
+            this.logger.error(
+              `[convertTo16kHzMonoWav] FFmpeg stderr error: ${stderrOutput}`,
+            );
+          } else {
+            this.logger.debug(
+              `[convertTo16kHzMonoWav] FFmpeg stderr output: ${stderrOutput}`,
+            );
+          }
+        })
+        .on("end", () => {
+          this.logger.log(
+            "[convertTo16kHzMonoWav] Audio preprocessing completed",
+          );
           resolve(outputStream);
         })
         .pipe(outputStream, { end: true });

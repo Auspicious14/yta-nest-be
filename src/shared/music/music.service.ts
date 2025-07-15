@@ -36,30 +36,38 @@ export class MusicService {
   }
 
   async searchSounds(query: string): Promise<any> {
+    this.logger.log(`[searchSounds] Searching for sounds with query: ${query}`);
     try {
       const result = await cloudinary.api.resources({
         type: "upload",
         prefix: "audio/",
         resource_type: "video",
-        max_results: 5,
-        tags: query,
+        max_results: 15,
+        // tags: query,
       });
 
       if (!result || !result.resources || result.resources.length === 0) {
-        this.logger.warn('No music found in Cloudinary "audio" folder.');
+        this.logger.warn(
+          '[searchSounds] No music found in Cloudinary "audio" folder.',
+        );
         return [];
       }
+      this.logger.log(
+        `[searchSounds] Found ${result.resources.length} resources.`,
+      );
 
       // Return a list of public_ids or URLs that can be used to fetch the music streams
-      return result.resources.map((resource) => ({
+      const mappedResults = result.resources.map((resource) => ({
         public_id: resource.public_id,
-        url: resource.secure_url, // Or use cloudinary.url to generate signed URLs later
-        // You can add more metadata here if available from Cloudinary
+        url: resource.secure_url,
       }));
+      this.logger.log(
+        `[searchSounds] Returning ${mappedResults.length} search results.`,
+      );
+      return mappedResults;
     } catch (error) {
       this.logger.error(
-        "Error searching music in Cloudinary:",
-        error.response?.data || error.message || error.toString(),
+        `[searchSounds] Error searching music in Cloudinary: ${error.response?.data || error.message || error.toString()}`,
       );
       throw new Error("Failed to search music in Cloudinary.");
     }
