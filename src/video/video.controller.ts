@@ -96,7 +96,7 @@ export class VideoController {
             );
           }, "Raw Audio generation and storage"),
           this.utilityService.retryOperation(
-            () => this.musicService.searchSounds(videoSearchQuery),
+            () => this.musicService.searchSounds(),
             "Music search",
           ),
           this.utilityService.retryOperation(

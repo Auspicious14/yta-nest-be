@@ -36,8 +36,8 @@ export class MusicService {
     });
   }
 
-  async searchSounds(query: string): Promise<any> {
-    this.logger.log(`[searchSounds] Searching for sounds with query: ${query}`);
+  async searchSounds(): Promise<any> {
+    this.logger.log(`[searchSounds] Searching for sounds`);
     try {
       const result = await cloudinary.api.resources({
         type: "upload",
