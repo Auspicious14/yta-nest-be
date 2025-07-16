@@ -17,8 +17,6 @@ export interface Job {
 export enum JobStatus {
   PENDING = "PENDING",
   INPROGRESS = "INPROGRESS",
-  FAILED = "FAILED",
-  COMPLETED = "COMPLETED",
 }
 
 export interface VideoDetails {

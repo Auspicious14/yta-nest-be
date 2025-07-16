@@ -1,16 +1,17 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document, Model } from "mongoose";
-import { JobStatus } from "../types/jobTypes";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document, Model } from 'mongoose';
+import { JobStatus } from '../types/jobTypes';
+
 
 @Schema()
 export class VideoDetails {
-  @Prop({ required: false, default: null })
+  @Prop({ required: true })
   title: string;
 
-  @Prop({ required: false, default: null })
+  @Prop({ required: true })
   description: string;
 
-  @Prop({ type: [String], required: false, default: null })
+  @Prop({ type: [String], required: true })
   tags: string[];
 
   @Prop({ type: String, default: null }) // GridFS ID for thumbnail
@@ -25,7 +26,7 @@ export class Job {
   @Prop({ enum: Object.values(JobStatus), default: JobStatus.PENDING })
   status: JobStatus;
 
-  @Prop({ required: false, default: null })
+  @Prop({ required: false })
   script: string;
 
   @Prop({ type: String, default: null }) // GridFS ID for audio
