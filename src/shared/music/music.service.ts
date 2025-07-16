@@ -6,6 +6,7 @@ import { Readable } from "stream";
 import { Db, GridFSBucket } from "mongodb";
 import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
+import { Job } from "src/types/jobTypes";
 
 @Injectable()
 export class MusicService {
@@ -124,5 +125,28 @@ export class MusicService {
           reject(err);
         });
     });
+  }
+
+  /**
+   * Selects a random background music track and stores it in GridFS.
+   * @param job The current job object.
+   * @param musicData An array of music data objects.
+   */
+  async selectAndStoreBackgroundMusic(
+    job: Job,
+    musicData: any[],
+  ): Promise<void> {
+    console.time("select-and-store-music");
+    const selectedMusic =
+      musicData[Math.floor(Math.random() * musicData.length)];
+    if (selectedMusic) {
+      job.backgroundMusicId = await this.downloadMusicAndSaveToGridFS(
+        selectedMusic.public_id,
+        `music_${job._id.toString()}.mp3`,
+      );
+    } else {
+      this.logger.warn("No background music found for the given prompt.");
+    }
+    console.timeEnd("select-and-store-music");
   }
 }

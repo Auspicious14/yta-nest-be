@@ -1,11 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OpenRouterService } from "../openrouter/openrouter.service";
+import { UtilityService } from "../utility/utility.service";
+import { Job } from "src/types/jobTypes";
 
 @Injectable()
 export class ScriptService {
   private readonly logger = new Logger(ScriptService.name);
 
-  constructor(private readonly openRouterService: OpenRouterService) {}
+  constructor(
+    private readonly openRouterService: OpenRouterService,
+    private readonly utilityService: UtilityService,
+  ) {}
 
   private async generateWithAI(
     systemPrompt: string,
@@ -125,5 +130,61 @@ ${script}
       `You're a professional video search query creator. Generate a concise, 1-3 word search query based on the script segment.`,
       scriptSegment,
     );
+  }
+
+  async generateScriptAndMetadata(
+    prompt: string,
+    job: Job,
+  ): Promise<{
+    script: string;
+    title: string;
+    description: string;
+    tags: string[];
+    imageSearchQuery: string;
+    videoSearchQuery: string;
+  }> {
+    console.time("script-and-metadata");
+    const [
+      script,
+      title,
+      description,
+      tags,
+      imageSearchQuery,
+      videoSearchQuery,
+    ] = await Promise.all([
+      this.utilityService.retryOperation(
+        () => this.generateScript(prompt),
+        "Script generation",
+      ),
+      this.utilityService.retryOperation(
+        () => this.generateVideoTitle(prompt),
+        "Title generation",
+      ),
+      this.utilityService.retryOperation(
+        () => this.generateVideoDescription(prompt),
+        "Description generation",
+      ),
+      this.utilityService.retryOperation(
+        () => this.generateTags(prompt),
+        "Tags generation",
+      ),
+      this.utilityService.retryOperation(
+        () => this.generateImageSearchQuery(prompt),
+        "Image query generation",
+      ),
+      this.utilityService.retryOperation(
+        () => this.generateVideoSearchQuery(prompt),
+        "Video query generation",
+      ),
+    ]);
+    console.timeEnd("script-and-metadata");
+    return {
+      script,
+      title,
+      description,
+      tags,
+      imageSearchQuery,
+      videoSearchQuery,
+    };
   }
 }
