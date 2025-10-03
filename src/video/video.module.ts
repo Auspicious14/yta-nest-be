@@ -3,14 +3,14 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { VideoController } from "./video.controller";
 import { Job, JobSchema } from "src/schemas";
 import { YoutubeService } from "./video.service";
-import { HttpModule, HttpService } from "@nestjs/axios";
-
+import { HttpModule } from "@nestjs/axios";
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: Job.name, schema: JobSchema }]),
-    // ...other modules...
     HttpModule,
+    ConfigModule,
   ],
   controllers: [VideoController],
   providers: [YoutubeService],

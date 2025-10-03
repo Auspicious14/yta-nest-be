@@ -153,7 +153,7 @@ import { ConfigService } from "@nestjs/config";
 import { Readable } from "stream";
 import { lastValueFrom } from "rxjs";
 import { v4 as uuidv4 } from "uuid";
-import { Job } from "src/types/jobTypes";
+import { JobDocument } from "src/schemas";
 import { GridFSBucket } from "mongodb";
 import { StorageService } from "../storage/storage.service";
 
@@ -371,7 +371,7 @@ export class PixabayService {
    * @returns A promise that resolves to an array of stored video clip IDs.
    */
   async searchAndStoreVideoClips(
-    job: Job,
+    job: JobDocument,
     bucket: GridFSBucket,
     videoSearchQuery: string,
   ): Promise<string[]> {
@@ -382,7 +382,7 @@ export class PixabayService {
         this.storageService.storeStream(
           bucket,
           stream,
-          `video_${job._id.toString()}_${i}.mp4`,
+          `video_${(job._id as any).toString()}_${i}.mp4`,
         ),
       ),
     );
