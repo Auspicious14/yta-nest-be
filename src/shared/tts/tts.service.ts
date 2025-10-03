@@ -6,7 +6,7 @@ import * as path from "path";
 import * as fs from "fs/promises";
 import { Types } from "mongoose";
 import { GridFSBucket } from "mongodb";
-import { Job } from "src/types/jobTypes";
+import { JobDocument } from "src/schemas";
 import { UtilityService } from "../utility/utility.service";
 import { StorageService } from "../storage/storage.service";
 
@@ -143,7 +143,7 @@ export class TTSService {
    * @param rawAudioId The ID of the raw audio stream in GridFS.
    */
   async processAndStoreAudio(
-    job: Job,
+    job: JobDocument,
     bucket: GridFSBucket,
     rawAudioId: string,
   ): Promise<void> {
@@ -155,14 +155,14 @@ export class TTSService {
       () =>
         this.convertTo16kHzMonoWav(
           rawAudioReadStream,
-          `audio_${job._id.toString()}.wav`,
+          `audio_${(job._id as any).toString()}.wav`,
         ),
       "Audio preprocessing",
     );
     const audioId = await this.storageService.storeStream(
       bucket,
       processedAudioStream,
-      `audio_${job._id.toString()}.wav`,
+      `audio_${(job._id as any).toString()}.wav`,
     );
     job.audioId = audioId;
     console.timeEnd("process-and-store-audio");

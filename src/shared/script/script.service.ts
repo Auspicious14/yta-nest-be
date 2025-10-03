@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { OpenRouterService } from "../openrouter/openrouter.service";
 import { UtilityService } from "../utility/utility.service";
-import { Job } from "src/types/jobTypes";
+import { JobDocument } from "src/schemas";
 
 @Injectable()
 export class ScriptService {
@@ -134,7 +134,7 @@ ${script}
 
   async generateScriptAndMetadata(
     prompt: string,
-    job: Job,
+    job: JobDocument,
   ): Promise<{
     script: string;
     title: string;

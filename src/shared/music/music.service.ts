@@ -6,7 +6,7 @@ import { Readable } from "stream";
 import { Db, GridFSBucket } from "mongodb";
 import { InjectConnection } from "@nestjs/mongoose";
 import { Connection } from "mongoose";
-import { Job } from "src/types/jobTypes";
+import { JobDocument } from "src/schemas";
 
 @Injectable()
 export class MusicService {
@@ -133,7 +133,7 @@ export class MusicService {
    * @param musicData An array of music data objects.
    */
   async selectAndStoreBackgroundMusic(
-    job: Job,
+    job: JobDocument,
     musicData: any[],
   ): Promise<void> {
     console.time("select-and-store-music");
@@ -142,7 +142,7 @@ export class MusicService {
     if (selectedMusic) {
       job.backgroundMusicId = await this.downloadMusicAndSaveToGridFS(
         selectedMusic.public_id,
-        `music_${job._id.toString()}.mp3`,
+        `music_${(job._id as any).toString()}.mp3`,
       );
     } else {
       this.logger.warn("No background music found for the given prompt.");
