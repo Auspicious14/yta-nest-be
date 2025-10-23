@@ -7,7 +7,6 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - fastapi
       - mongo
     environment:
       - MONGO_URI=mongodb://mongo:27017/yta-nest-be
@@ -16,10 +15,6 @@ services:
       - YOUTUBE_REDIRECT_URI=${YOUTUBE_REDIRECT_URI}
       - YOUTUBE_REFRESH_TOKEN=${YOUTUBE_REFRESH_TOKEN}
       - API_KEY=${PIXABAY_API_KEY}
-  fastapi:
-    image: ghcr.io/${GITHUB_REPOSITORY_OWNER}/yta-vosk-fastapi:latest
-    ports:
-      - "8000:8000"
   mongo:
     image: mongo:latest
     ports:
