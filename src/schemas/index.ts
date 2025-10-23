@@ -14,8 +14,8 @@ export class VideoDetails {
   @Prop({ type: [String], required: true })
   tags: string[];
 
-  @Prop({ type: String, default: null }) // GridFS ID for thumbnail
-  thumbnailId: string;
+  @Prop({ type: String, default: null })
+  thumbnailUrl: string;
 }
 
 @Schema({ timestamps: true })
@@ -29,20 +29,20 @@ export class Job {
   @Prop({ required: false })
   script: string;
 
-  @Prop({ type: String, default: null }) // GridFS ID for audio
-  audioId: string;
+  @Prop({ type: String, default: null })
+  audioUrl: string;
 
-  @Prop({ type: String, default: null }) // GridFS ID for subtitles
-  subtitleId: string;
+  @Prop({ type: String, default: null })
+  subtitleUrl: string;
 
-  @Prop({ type: [String], default: [] }) // GridFS IDs for video clips
-  videoClipIds: string[];
+  @Prop({ type: [String], default: [] })
+  videoClipUrls: string[];
 
-  @Prop({ type: String, default: null }) // GridFS ID for background music
-  backgroundMusicId: string;
+  @Prop({ type: String, default: null })
+  backgroundMusicUrl: string;
 
-  @Prop({ type: String, default: null }) // GridFS ID for final video
-  finalVideoId: string;
+  @Prop({ type: String, default: null })
+  finalVideoUrl: string;
 
   @Prop({ type: String, default: null }) // YouTube video ID
   youtubeVideoId: string;
