@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { google } from 'googleapis';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
-import { GridFSBucket } from 'mongodb';
 import mongoose from 'mongoose';
 
 @Injectable()
@@ -47,26 +46,19 @@ export class YoutubeService {
     videoStream: Readable,
     title: string,
     description: string,
-    tags: string[],
-    bucket?: GridFSBucket,
-    finalVideoId?: string
+    tags: string[]
   ): Promise<{ id: string; url: string } | null> {
     if (!this.REFRESH_TOKEN) {
-      this.logger.error('YouTube refresh token not set. Cannot upload video.');
+      this.logger.error("YouTube refresh token not set. Cannot upload video.");
       this.logger.log(
-        'Ensure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, and YOUTUBE_REFRESH_TOKEN are set in .env.'
+        "Ensure YOUTUBE_CLIENT_ID, YOUTUBE_CLIENT_SECRET, YOUTUBE_REDIRECT_URI, and YOUTUBE_REFRESH_TOKEN are set in .env.",
       );
-      this.logger.log('Perform OAuth flow to obtain a refresh token.');
-      throw new Error('YouTube refresh token missing');
+      this.logger.log("Perform OAuth flow to obtain a refresh token.");
+      throw new Error("YouTube refresh token missing");
     }
 
     try {
-      // If finalVideoId is provided, fetch stream from GridFS
-      let uploadStream = videoStream;
-      if (finalVideoId && bucket) {
-        this.logger.log(`Fetching video stream from GridFS: ${finalVideoId}`);
-        uploadStream = bucket.openDownloadStream(new mongoose.Types.ObjectId(finalVideoId));
-      }
+      const uploadStream = videoStream;
 
       // Validate inputs
       if (!uploadStream) {
