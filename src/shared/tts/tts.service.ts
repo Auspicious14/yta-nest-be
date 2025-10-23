@@ -142,29 +142,29 @@ export class TTSService {
    * @param bucket The GridFSBucket instance.
    * @param rawAudioId The ID of the raw audio stream in GridFS.
    */
-  async processAndStoreAudio(
-    job: JobDocument,
-    bucket: GridFSBucket,
-    rawAudioId: string,
-  ): Promise<void> {
-    console.time("process-and-store-audio");
-    const rawAudioReadStream = bucket.openDownloadStream(
-      new Types.ObjectId(rawAudioId),
-    );
-    const processedAudioStream = await this.utilityService.retryOperation(
-      () =>
-        this.convertTo16kHzMonoWav(
-          rawAudioReadStream,
-          `audio_${(job._id as any).toString()}.wav`,
-        ),
-      "Audio preprocessing",
-    );
-    const audioId = await this.storageService.storeStream(
-      bucket,
-      processedAudioStream,
-      `audio_${(job._id as any).toString()}.wav`,
-    );
-    job.audioId = audioId;
-    console.timeEnd("process-and-store-audio");
-  }
+  // async processAndStoreAudio(
+  //   job: JobDocument,
+  //   bucket: GridFSBucket,
+  //   rawAudioId: string,
+  // ): Promise<void> {
+  //   console.time("process-and-store-audio");
+  //   const rawAudioReadStream = bucket.openDownloadStream(
+  //     new Types.ObjectId(rawAudioId),
+  //   );
+  //   const processedAudioStream = await this.utilityService.retryOperation(
+  //     () =>
+  //       this.convertTo16kHzMonoWav(
+  //         rawAudioReadStream,
+  //         `audio_${(job._id as any).toString()}.wav`,
+  //       ),
+  //     "Audio preprocessing",
+  //   );
+  //   const audioId = await this.storageService.storeStream(
+  //     bucket,
+  //     processedAudioStream,
+  //     `audio_${(job._id as any).toString()}.wav`,
+  //   );
+  //   job.audioUrl = audioId;
+  //   console.timeEnd("process-and-store-audio");
+  // }
 }
