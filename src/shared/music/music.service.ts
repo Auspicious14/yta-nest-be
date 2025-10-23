@@ -132,21 +132,21 @@ export class MusicService {
    * @param job The current job object.
    * @param musicData An array of music data objects.
    */
-  async selectAndStoreBackgroundMusic(
-    job: JobDocument,
-    musicData: any[],
-  ): Promise<void> {
-    console.time("select-and-store-music");
-    const selectedMusic =
-      musicData[Math.floor(Math.random() * musicData.length)];
-    if (selectedMusic) {
-      job.backgroundMusicId = await this.downloadMusicAndSaveToGridFS(
-        selectedMusic.public_id,
-        `music_${(job._id as any).toString()}.mp3`,
-      );
-    } else {
-      this.logger.warn("No background music found for the given prompt.");
-    }
-    console.timeEnd("select-and-store-music");
-  }
+  // async selectAndStoreBackgroundMusic(
+  //   job: JobDocument,
+  //   musicData: any[],
+  // ): Promise<void> {
+  //   console.time("select-and-store-music");
+  //   const selectedMusic =
+  //     musicData[Math.floor(Math.random() * musicData.length)];
+  //   if (selectedMusic) {
+  //     job.backgroundMusicUrl = await this.downloadMusicAndSaveToGridFS(
+  //       selectedMusic.public_id,
+  //       `music_${(job._id as any).toString()}.mp3`,
+  //     );
+  //   } else {
+  //     this.logger.warn("No background music found for the given prompt.");
+  //   }
+  //   console.timeEnd("select-and-store-music");
+  // }
 }

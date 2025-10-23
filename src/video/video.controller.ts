@@ -79,17 +79,21 @@ export class VideoController {
       job.finalVideoUrl = videoUrl;
 
       // Step 3: Upload to YouTube
-      const videoStream = await this.httpService.get(videoUrl, {
-        responseType: "stream",
-      });
+      const videoStreamResponse = await lastValueFrom(
+        this.httpService.get(videoUrl, {
+          responseType: "stream",
+        }),
+      );
       const uploadResult = await this.youtubeService.uploadVideoStream(
-        videoStream.data,
+        videoStreamResponse.data,
         job.videoDetails.title,
         job.videoDetails.description,
         job.videoDetails.tags,
       );
-      job.youtubeVideoId = uploadResult?.id;
-      job.youtubeVideoUrl = uploadResult?.url;
+      if (uploadResult) {
+        job.youtubeVideoId = uploadResult.id;
+        job.youtubeVideoUrl = uploadResult.url;
+      }
 
       // Save job to MongoDB
       await job.save();
