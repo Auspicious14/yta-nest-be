@@ -14,6 +14,8 @@ import { YoutubeService } from "./video.service";
 import { Job } from "src/schemas";
 import { UtilityService } from "src/shared/utility/utility.service";
 import { ConfigService } from "@nestjs/config";
+import * as fs from "fs";
+import * as path from "path";
 
 @Controller("automate/video")
 export class VideoController {
@@ -41,6 +43,21 @@ export class VideoController {
     );
   }
 
+  private async downloadVideo(
+    url: string,
+    filePath: string,
+  ): Promise<void> {
+    const writer = fs.createWriteStream(filePath);
+    const response = await lastValueFrom(
+      this.httpService.get(url, { responseType: "stream" }),
+    );
+    response.data.pipe(writer);
+    return new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+  }
+
   @Post()
   async generateVideo(@Body("prompt") prompt: string): Promise<Job> {
     if (!prompt) {
@@ -56,6 +73,12 @@ export class VideoController {
     if (!job || !job._id) {
       throw new InternalServerErrorException("Job ID not generated");
     }
+
+    const tempDir = path.join(__dirname, "..", "..", "temp");
+    const tempFilePath = path.join(
+      tempDir,
+      `video-${job._id.toString()}.mp4`,
+    );
 
     try {
       const { script, title, description, tags } =
@@ -78,14 +101,18 @@ export class VideoController {
       const videoUrl = response.data.data.videos[0];
       job.finalVideoUrl = videoUrl;
 
-      // Step 3: Upload to YouTube
-      const videoStreamResponse = await lastValueFrom(
-        this.httpService.get(videoUrl, {
-          responseType: "stream",
-        }),
+      // Step 3: Download video to a temporary file
+      const tempDir = path.join(__dirname, "..", "..", "temp");
+      await fs.promises.mkdir(tempDir, { recursive: true });
+      const tempFilePath = path.join(
+        tempDir,
+        `video-${job._id.toString()}.mp4`,
       );
+      await this.downloadVideo(videoUrl, tempFilePath);
+
+      // Step 4: Upload to YouTube
       const uploadResult = await this.youtubeService.uploadVideoStream(
-        videoStreamResponse.data,
+        fs.createReadStream(tempFilePath),
         job.videoDetails.title,
         job.videoDetails.description,
         job.videoDetails.tags,
@@ -111,6 +138,11 @@ export class VideoController {
       throw new InternalServerErrorException(
         `Video generation failed for job ${job._id.toString()}: ${error.message}`,
       );
+    } finally {
+      // Clean up the temporary file
+      if (fs.existsSync(tempFilePath)) {
+        await fs.promises.unlink(tempFilePath);
+      }
     }
   }
 }
