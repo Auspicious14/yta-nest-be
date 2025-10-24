@@ -8,6 +8,7 @@ import { PixabayModule } from "./pixabay/pixabay.module";
 import { FfmPegModle } from "./ffmpeg/ffmpeg.module";
 import { UtilityModule } from "./utility/utility.module";
 import { StorageModule } from "./storage/storage.module";
+import { PollinationsModule } from "./pollinations/pollinations.module";
 
 @Global()
 @Module({
@@ -21,6 +22,7 @@ import { StorageModule } from "./storage/storage.module";
     MusicModule,
     UtilityModule,
     StorageModule,
+    PollinationsModule,
   ],
   exports: [
     TTSModule,
@@ -32,6 +34,7 @@ import { StorageModule } from "./storage/storage.module";
     MusicModule,
     UtilityModule,
     StorageModule,
+    PollinationsModule,
   ],
 })
 export class SharedModule {}
