@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { OpenRouterService } from "../openrouter/openrouter.service";
 import { UtilityService } from "../utility/utility.service";
 import { JobDocument } from "src/schemas";
+import { PollinationsService } from "../pollinations/pollinations.service";
 
 @Injectable()
 export class ScriptService {
@@ -9,6 +10,7 @@ export class ScriptService {
 
   constructor(
     private readonly openRouterService: OpenRouterService,
+    private readonly pollinationsService: PollinationsService,
     private readonly utilityService: UtilityService,
   ) {}
 
@@ -30,14 +32,28 @@ User Input:
 ${userContent}
     `.trim();
 
-    const response = await this.openRouterService.chatCompletions(
-      systemPrompt,
-      prompt,
-    );
-    if (!response) {
-      throw new Error("Empty response from OpenRouter");
+    try {
+      const response = await this.pollinationsService.generateText(
+        systemPrompt,
+        userContent,
+      );
+      if (!response) {
+        throw new Error("Empty response from Pollinations.ai");
+      }
+      return response.replace(/\n/g, " ").trim();
+    } catch (error) {
+      this.logger.warn(
+        `Pollinations.ai failed: ${error.message}, falling back to OpenRouter`,
+      );
+      const response = await this.openRouterService.chatCompletions(
+        systemPrompt,
+        prompt,
+      );
+      if (!response) {
+        throw new Error("Empty response from OpenRouter");
+      }
+      return response.replace(/\n/g, " ").trim();
     }
-    return response.replace(/\n/g, " ").trim(); // Remove newlines and extra spaces
   }
 
   async generateScript(prompt: string): Promise<string> {
