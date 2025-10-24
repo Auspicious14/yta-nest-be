@@ -9,20 +9,17 @@ export class PollinationsService {
 
   constructor(private readonly httpService: HttpService) {}
 
-  async generateText(
-    systemPrompt: string,
-    userPrompt: string,
-  ): Promise<string> {
+  async generateText(prompt: string): Promise<string> {
     this.logger.log(
-      `Generating text with Pollinations.ai for prompt: ${userPrompt}`,
+      `Generating text with Pollinations.ai for prompt: ${prompt.substring(0, 100)}...,`,
     );
     try {
       const payload = {
         model: "openai",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 500,
+        stream: false,
       };
       const response = await lastValueFrom(
         this.httpService.post(`${this.baseUrl}/openai`, payload),
@@ -30,7 +27,8 @@ export class PollinationsService {
       return response.data.choices[0].message.content;
     } catch (error) {
       this.logger.error(
-        `Failed to generate text with Pollinations.ai: ${error.message}`,
+        `Failed to generate text with Pollinations.ai: ${error.message},
+    `,
       );
       throw error;
     }

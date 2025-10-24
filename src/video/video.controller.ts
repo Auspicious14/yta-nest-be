@@ -36,10 +36,10 @@ export class VideoController {
     // @InjectConnection() private readonly connection: Connection,
     private readonly configService: ConfigService,
   ) {
-    this.subtitleUrl = this.configService.get<string>(
-      "SUBTITLE_MICROSERVICE_URL",
-      "https://yta-subtitle-microservice.onrender.com/subtitles",
-    );
+    // this.subtitleUrl = this.configService.get<string>(
+    //   "SUBTITLE_MICROSERVICE_URL",
+    //   "https://yta-subtitle-microservice.onrender.com/subtitles",
+    // );
   }
 
   @Post()
@@ -68,17 +68,15 @@ export class VideoController {
 
       // Step 2: Generate video using Render endpoint
       const response = await lastValueFrom(
-        this.httpService.post(
-          "https://mpt-mkrv.onrender.com/api/v1/videos",
-          {
-            video_subject: prompt,
-            video_script: script,
-          },
-        ),
+        this.httpService.post("https://mpt-mkrv.onrender.com/api/v1/videos", {
+          video_subject: prompt,
+          video_script: script,
+        }),
       );
       const videoUrl = response.data.data.videos[0];
       job.finalVideoUrl = videoUrl;
-
+      console.log({ videoUrl });
+      console.log("videos response", response.data.data.videos);
       // Step 3: Stream video to YouTube
       const videoStream = await axios.get(videoUrl, {
         responseType: "stream",

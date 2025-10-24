@@ -33,26 +33,22 @@ ${userContent}
     `.trim();
 
     try {
-      const response = await this.pollinationsService.generateText(
-        systemPrompt,
-        userContent,
-      );
+      const response = await this.pollinationsService.generateText(prompt);
       if (!response) {
         throw new Error("Empty response from Pollinations.ai");
       }
       return response.replace(/\n/g, " ").trim();
     } catch (error) {
-      this.logger.warn(
-        `Pollinations.ai failed: ${error.message}, falling back to OpenRouter`,
-      );
-      const response = await this.openRouterService.chatCompletions(
-        systemPrompt,
-        prompt,
-      );
-      if (!response) {
-        throw new Error("Empty response from OpenRouter");
-      }
-      return response.replace(/\n/g, " ").trim();
+      this.logger.warn(`Pollinations.ai failed: ${error.message}, `);
+      // const response = await this.openRouterService.chatCompletions(
+      //   systemPrompt,
+      //   prompt,
+      // );
+      // if (!response) {
+      //   throw new Error("Empty response from OpenRouter");
+      // }
+      // return response.replace(/\n/g, " ").trim();
+      return error?.message;
     }
   }
 
