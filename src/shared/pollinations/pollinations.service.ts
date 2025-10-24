@@ -22,8 +22,12 @@ export class PollinationsService {
         stream: false,
       };
       const response = await lastValueFrom(
-        this.httpService.post(`${this.baseUrl}`, payload),
-      );
+      this.httpService.post(this.baseUrl, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    );
       return response.data.choices[0].message.content;
     } catch (error) {
       this.logger.error(
