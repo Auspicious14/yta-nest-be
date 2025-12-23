@@ -17,13 +17,17 @@ export class PollinationsService {
       const payload = {
         model: "openai",
         messages: [{ role: "user", content: prompt }],
-        temperature: 0.7,
-        max_tokens: 500,
+        jsonMode: false,
+        seed: 42,
         stream: false,
       };
       const response = await lastValueFrom(
-        this.httpService.post(`${this.baseUrl}/openai`, payload),
-      );
+      this.httpService.post(this.baseUrl, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    );
       return response.data.choices[0].message.content;
     } catch (error) {
       this.logger.error(
