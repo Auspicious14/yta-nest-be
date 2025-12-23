@@ -1,17 +1,16 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Model } from 'mongoose';
-import { JobStatus } from '../types/jobTypes';
-
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Model } from "mongoose";
+import { JobStatus } from "../types/jobTypes";
 
 @Schema()
 export class VideoDetails {
-  @Prop({ required: true })
+  @Prop({ type: String, default: "" })
   title: string;
 
-  @Prop({ required: true })
+  @Prop({ type: String, default: "" })
   description: string;
 
-  @Prop({ type: [String], required: true })
+  @Prop({ type: [String], default: [] })
   tags: string[];
 
   @Prop({ type: String, default: null })

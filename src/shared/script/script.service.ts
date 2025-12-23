@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { OpenRouterService } from "../openrouter/openrouter.service";
 import { UtilityService } from "../utility/utility.service";
 import { JobDocument } from "src/schemas";
-import { PollinationsService } from "../pollinations/pollinations.service";
+import { GeminiService } from "../gemini/gemini.service";
 
 @Injectable()
 export class ScriptService {
@@ -10,7 +10,7 @@ export class ScriptService {
 
   constructor(
     private readonly openRouterService: OpenRouterService,
-    private readonly pollinationsService: PollinationsService,
+    private readonly geminiService: GeminiService,
     private readonly utilityService: UtilityService,
   ) {}
 
@@ -33,22 +33,14 @@ ${userContent}
     `.trim();
 
     try {
-      const response = await this.pollinationsService.generateText(prompt);
+      const response = await this.geminiService.generateTextWithRetry(prompt);
       if (!response) {
-        throw new Error("Empty response from Pollinations.ai");
+        throw new Error("Empty response from Gemini");
       }
       return response.replace(/\n/g, " ").trim();
     } catch (error) {
-      this.logger.warn(`Pollinations.ai failed: ${error.message}, `);
-      // const response = await this.openRouterService.chatCompletions(
-      //   systemPrompt,
-      //   prompt,
-      // );
-      // if (!response) {
-      //   throw new Error("Empty response from OpenRouter");
-      // }
-      // return response.replace(/\n/g, " ").trim();
-      return error?.message;
+      this.logger.error(`Gemini generation failed: ${error.message}`);
+      throw new Error(`Script generation failed: ${error.message}`);
     }
   }
 

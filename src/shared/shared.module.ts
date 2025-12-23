@@ -8,7 +8,7 @@ import { PixabayModule } from "./pixabay/pixabay.module";
 import { FfmPegModle } from "./ffmpeg/ffmpeg.module";
 import { UtilityModule } from "./utility/utility.module";
 import { StorageModule } from "./storage/storage.module";
-import { PollinationsModule } from "./pollinations/pollinations.module";
+import { GeminiModule } from "./gemini/gemini.module";
 
 @Global()
 @Module({
@@ -22,7 +22,7 @@ import { PollinationsModule } from "./pollinations/pollinations.module";
     MusicModule,
     UtilityModule,
     StorageModule,
-    PollinationsModule,
+    GeminiModule,
   ],
   exports: [
     TTSModule,
@@ -34,7 +34,7 @@ import { PollinationsModule } from "./pollinations/pollinations.module";
     MusicModule,
     UtilityModule,
     StorageModule,
-    PollinationsModule,
+    GeminiModule,
   ],
 })
 export class SharedModule {}
